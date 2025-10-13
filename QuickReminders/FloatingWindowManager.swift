@@ -974,7 +974,6 @@ struct FloatingReminderView: View {
         // Check for list commands
         let listKeywords = colorTheme.shortcutsEnabled ? ["list", "ls"] : ["list"]
         if listKeywords.contains(where: { lowercaseText.starts(with: $0) }) {
-            reminderText = "" // Clear text for valid list commands
             handleListCommand(lowercaseText, resetProcessing: resetProcessing)
             return
         }
@@ -984,7 +983,6 @@ struct FloatingReminderView: View {
             ["delete", "remove", "rm "] : 
             ["delete", "remove"]
         if deleteKeywords.contains(where: { lowercaseText.starts(with: $0) }) {
-            reminderText = "" // Clear text for valid delete commands
             handleDeleteCommand(lowercaseText, resetProcessing: resetProcessing)
             return
         }
@@ -994,7 +992,6 @@ struct FloatingReminderView: View {
             ["move", "reschedule", "mv "] :
             ["move", "reschedule"]
         if moveKeywords.contains(where: { lowercaseText.contains($0) }) {
-            reminderText = "" // Clear text for valid move commands
             handleMoveCommand(lowercaseText, resetProcessing: resetProcessing)
             return
         }
@@ -1135,9 +1132,10 @@ struct FloatingReminderView: View {
     private func processDeleteResult(reminders: [EKReminder], resetProcessing: @escaping () -> Void) {
         DispatchQueue.main.async {
             if reminders.isEmpty {
-                // No reminders found to delete
+                // No reminders found to delete - keep text so user can fix typo
                 resetProcessing()
                 self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
+                // Don't clear reminderText so user can easily fix the command
                 return
             }
             
@@ -1150,6 +1148,8 @@ struct FloatingReminderView: View {
                     targetList: nil
                 )
                 
+                // Clear text since we found reminders and will show selection
+                self.reminderText = ""
                 self.showDuplicateSelectionFor(reminders: reminders, command: command)
                 resetProcessing()
                 return
@@ -1157,6 +1157,8 @@ struct FloatingReminderView: View {
             
             // Single reminder found - delete it directly
             let reminderToDelete = reminders.first!
+            // Clear text since we found the reminder and will delete it
+            self.reminderText = ""
             self.executeRemoveCommand(for: reminderToDelete)
             resetProcessing()
         }
@@ -1230,7 +1232,8 @@ struct FloatingReminderView: View {
             showRemindersList = true
         }
         
-        // Show success feedback (text already cleared earlier)
+        // Clear text on successful list command
+        reminderText = ""
         showFlashFeedback(color: colorTheme.successColor, success: true)
         resetProcessing()
     }
@@ -1382,9 +1385,10 @@ struct FloatingReminderView: View {
     private func processMoveResult(reminders: [EKReminder], newDateText: String, resetProcessing: @escaping () -> Void) {
         DispatchQueue.main.async {
             if reminders.isEmpty {
-                // No reminders found to move
+                // No reminders found to move - keep text so user can fix typo
                 resetProcessing()
                 self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
+                // Don't clear reminderText so user can easily fix the command
                 return
             }
             
@@ -1413,6 +1417,8 @@ struct FloatingReminderView: View {
                     targetList: nil
                 )
                 
+                // Clear text since we found reminders and will show selection
+                self.reminderText = ""
                 self.showDuplicateSelectionFor(reminders: reminders, command: command)
                 resetProcessing()
                 return
@@ -1420,6 +1426,8 @@ struct FloatingReminderView: View {
             
             // Single reminder found - move it directly using the existing complex logic
             let reminderToMove = reminders.first!
+            // Clear text since we found the reminder and will move it
+            self.reminderText = ""
             self.processSingleReminderMove(reminderToMove, newDateText: newDateText, resetProcessing: resetProcessing)
         }
     }
