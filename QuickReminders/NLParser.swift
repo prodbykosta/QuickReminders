@@ -485,6 +485,10 @@ class NLParser {
                     let recurrenceGroups: (interval: Int, unit: Int)
                     
                     if index == 0 {
+                        // Use helper function to get time with period detection
+                        let defaultTime = getDefaultTime(from: processedText)
+                        hour = defaultTime.hour
+                        minute = defaultTime.minute
                         recurrenceGroups = (3, 4)
                     } else if index == 1 {
                         let time = parseTime(from: processedText, match: match, hourGroup: 3, minuteGroup: 4, ampmGroup: 5)
@@ -1259,8 +1263,9 @@ class NLParser {
                 components.hour = time.hour
                 components.minute = time.minute
             } else {
-                components.hour = 9
-                components.minute = 0
+                let defaultTime = getDefaultTime(from: text)
+                components.hour = defaultTime.hour
+                components.minute = defaultTime.minute
             }
             return (calendar.date(from: components), false, nil, nil, nil)
         }
@@ -1269,12 +1274,14 @@ class NLParser {
     }
     
     private func parseTime(from text: String, match: NSTextCheckingResult, hourGroup: Int, minuteGroup: Int?, ampmGroup: Int?) -> (hour: Int, minute: Int) {
-        var hour = 9
-        var minute = 0
+        // Start with default time (which includes time period detection)
+        let defaultTime = getDefaultTime(from: text)
+        var hour = defaultTime.hour
+        var minute = defaultTime.minute
 
         let hourRange = match.range(at: hourGroup)
         if hourRange.location != NSNotFound {
-            hour = Int(String(text[Range(hourRange, in: text)!])) ?? 9
+            hour = Int(String(text[Range(hourRange, in: text)!])) ?? defaultTime.hour
         }
 
         if let minuteGroup = minuteGroup {
@@ -1298,6 +1305,31 @@ class NLParser {
         }
         
         return (hour, minute)
+    }
+    
+    private func extractTimePeriod(from text: String) -> (hour: Int, minute: Int)? {
+        // Check for time periods like "morning", "noon", "afternoon", "evening", "night"
+        let timePeriods = ["morning", "noon", "afternoon", "evening", "night"]
+        
+        for period in timePeriods {
+            if text.lowercased().contains(period) {
+                // Use color theme to get preset time for this period
+                if let timeComponents = colorTheme?.getTimeComponents(for: period) {
+                    return timeComponents
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    private func getDefaultTime(from text: String) -> (hour: Int, minute: Int) {
+        // Check for time period first, then fallback to default
+        if let timePeriod = extractTimePeriod(from: text) {
+            return timePeriod
+        }
+        // Fallback to 9am if no time period found
+        return (hour: 9, minute: 0)
     }
 
     private func parseDateComponents(firstValue: Int, secondValue: Int) -> (month: Int, day: Int)? {

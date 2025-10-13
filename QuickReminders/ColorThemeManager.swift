@@ -86,6 +86,13 @@ class ColorThemeManager: ObservableObject {
     @Published var shortcutsEnabled: Bool = true // Enable/disable shortcut commands (mv, rm, ls, etc.)
     @Published var dateFormat: DateFormat = .mmdd // Date format preference (MM/DD vs DD/MM)
     
+    // Time presets for natural language periods
+    @Published var morningTime: String = "8:00 AM" // Default time for "morning"
+    @Published var noonTime: String = "12:00 PM" // Default time for "noon"
+    @Published var afternoonTime: String = "3:00 PM" // Default time for "afternoon"
+    @Published var eveningTime: String = "6:00 PM" // Default time for "evening"
+    @Published var nightTime: String = "9:00 PM" // Default time for "night"
+    
     private let userDefaults = UserDefaults.standard
     
     init() {
@@ -183,6 +190,37 @@ class ColorThemeManager: ObservableObject {
                 self.dateFormat = .mmdd
             }
             
+            // Load time presets (with defaults if not set)
+            if let savedMorningTime = userDefaults.string(forKey: "MorningTime") {
+                self.morningTime = savedMorningTime
+            } else {
+                self.morningTime = "8:00 AM"
+            }
+            
+            if let savedNoonTime = userDefaults.string(forKey: "NoonTime") {
+                self.noonTime = savedNoonTime
+            } else {
+                self.noonTime = "12:00 PM"
+            }
+            
+            if let savedAfternoonTime = userDefaults.string(forKey: "AfternoonTime") {
+                self.afternoonTime = savedAfternoonTime
+            } else {
+                self.afternoonTime = "3:00 PM"
+            }
+            
+            if let savedEveningTime = userDefaults.string(forKey: "EveningTime") {
+                self.eveningTime = savedEveningTime
+            } else {
+                self.eveningTime = "6:00 PM"
+            }
+            
+            if let savedNightTime = userDefaults.string(forKey: "NightTime") {
+                self.nightTime = savedNightTime
+            } else {
+                self.nightTime = "9:00 PM"
+            }
+            
             // Loaded color theme and settings from UserDefaults
         } catch {
             // Error loading colors, using defaults
@@ -241,6 +279,13 @@ class ColorThemeManager: ObservableObject {
             // Save date format setting
             userDefaults.set(dateFormat.rawValue, forKey: "DateFormat")
             
+            // Save time presets
+            userDefaults.set(morningTime, forKey: "MorningTime")
+            userDefaults.set(noonTime, forKey: "NoonTime")
+            userDefaults.set(afternoonTime, forKey: "AfternoonTime")
+            userDefaults.set(eveningTime, forKey: "EveningTime")
+            userDefaults.set(nightTime, forKey: "NightTime")
+            
             // Saved color theme and settings to UserDefaults
         } catch {
             // Error saving colors
@@ -286,6 +331,56 @@ struct ColorTheme {
         ColorTheme(name: "Purple", successColor: .mint, errorColor: .pink, primaryColor: .purple),
         ColorTheme(name: "Monochrome", successColor: .gray, errorColor: .black, primaryColor: .gray)
     ]
+    
+    // MARK: - Time Preset Helpers
+    
+    /// Convert a time period string to hour and minute components
+    func getTimeComponents(for period: String) -> (hour: Int, minute: Int)? {
+        let timeString: String
+        switch period.lowercased() {
+        case "morning":
+            timeString = morningTime
+        case "noon":
+            timeString = noonTime
+        case "afternoon":
+            timeString = afternoonTime
+        case "evening":
+            timeString = eveningTime
+        case "night":
+            timeString = nightTime
+        default:
+            return nil
+        }
+        
+        return parseTimeString(timeString)
+    }
+    
+    /// Parse time string like "8:00 AM" into hour and minute components
+    private func parseTimeString(_ timeString: String) -> (hour: Int, minute: Int)? {
+        // Handle formats like "8:00 AM", "12:00 PM", "3:30 PM", etc.
+        let components = timeString.components(separatedBy: " ")
+        guard components.count == 2 else { return nil }
+        
+        let timePart = components[0]
+        let ampmPart = components[1].uppercased()
+        
+        let timeComponents = timePart.components(separatedBy: ":")
+        guard timeComponents.count == 2,
+              let hour = Int(timeComponents[0]),
+              let minute = Int(timeComponents[1]) else {
+            return nil
+        }
+        
+        // Convert to 24-hour format
+        var finalHour = hour
+        if ampmPart == "PM" && hour != 12 {
+            finalHour += 12
+        } else if ampmPart == "AM" && hour == 12 {
+            finalHour = 0
+        }
+        
+        return (hour: finalHour, minute: minute)
+    }
 }
 
 // Safe extension to help with color conversion
