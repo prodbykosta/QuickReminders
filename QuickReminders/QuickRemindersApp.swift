@@ -54,10 +54,11 @@ class SettingsWindowDelegate: NSObject, NSWindowDelegate {
 
 class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     private var statusItem: NSStatusItem!
-    @Published var reminderManager = ReminderManager()
-    @Published var hotKeyManager = HotKeyManager()
-    @Published var floatingWindowManager = FloatingWindowManager()
-    @Published var colorTheme = ColorThemeManager()
+    @Published var reminderManager: ReminderManager
+    @Published var hotKeyManager: HotKeyManager
+    @Published var floatingWindowManager: FloatingWindowManager
+    @Published var colorTheme: ColorThemeManager
+
     @Published var showInMenuBar = true
     private var cancellables = Set<AnyCancellable>()
     
@@ -70,6 +71,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     private var isShowingSettings = false // Track if settings are being shown
     
     override init() {
+        let colorTheme = ColorThemeManager()
+        self.colorTheme = colorTheme
+        self.reminderManager = ReminderManager(colorTheme: colorTheme)
+        self.hotKeyManager = HotKeyManager()
+        self.floatingWindowManager = FloatingWindowManager()
+        
         super.init()
         // AppDelegate initializing
         

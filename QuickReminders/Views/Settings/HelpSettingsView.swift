@@ -329,7 +329,7 @@ struct SyntaxHighlightedText: View {
         
         for (wordIndex, word) in words.enumerated() {
             let wordStr = String(word)
-            let color = getColorForWord(wordStr)
+            let color = getColorForWord(wordStr, at: wordIndex, in: words)
             components.append((index, wordStr, color))
             index += 1
             
@@ -343,7 +343,7 @@ struct SyntaxHighlightedText: View {
         return components
     }
     
-    private func getColorForWord(_ word: String) -> Color {
+    private func getColorForWord(_ word: String, at index: Int, in words: [Substring]) -> Color {
         let lowercased = word.lowercased()
         
         // Commands (blue)
@@ -352,7 +352,7 @@ struct SyntaxHighlightedText: View {
         }
         
         // Connectors (purple)
-        if ["to", "at", "on", "from", "by"].contains(lowercased) {
+        if ["to", "at", "on", "from", "by", "in"].contains(lowercased) {
             return .purple
         }
         
@@ -361,8 +361,8 @@ struct SyntaxHighlightedText: View {
             return .yellow
         }
         
-        // Time patterns (red)
-        if word.contains(":") || word.hasSuffix("am") || word.hasSuffix("pm") {
+        // Time patterns and periods (red)
+        if word.contains(":") || word.hasSuffix("am") || word.hasSuffix("pm") || ["morning", "noon", "afternoon", "evening", "night"].contains(lowercased) {
             return .red
         }
         
@@ -374,14 +374,40 @@ struct SyntaxHighlightedText: View {
             return .green
         }
         
-        // Recurring patterns (brown) - check for "every X days/weeks/months" patterns
-        if lowercased == "every" {
-            return .brown
+        // Context-aware numbers
+        if word.allSatisfy({ $0.isNumber }) {
+            // Look at previous word for context
+            if index > 0 {
+                let prevWord = String(words[index - 1]).lowercased()
+                if prevWord == "in" {
+                    return .orange // Numbers after "in" are orange
+                } else if prevWord == "every" {
+                    return .brown // Numbers after "every" are brown
+                }
+            }
         }
-        // Check for time unit words - context matters!
-        // For now, we'll color them brown (recurring) by default
-        // In a perfect world, we'd check context to distinguish "in 3 days" (orange) vs "every 3 days" (brown)
+        
+        // Context-aware time units
         if ["day", "days", "week", "weeks", "month", "months"].contains(lowercased) {
+            // Look at previous words for context
+            if index > 0 {
+                let prevWord = String(words[index - 1]).lowercased()
+                if prevWord == "this" || prevWord == "next" {
+                    return .orange // Time units after "this"/"next" are orange
+                } else if index > 1 {
+                    let prevPrevWord = String(words[index - 2]).lowercased()
+                    if prevPrevWord == "every" {
+                        return .brown // Time units after "every X" are brown
+                    } else if prevPrevWord == "in" {
+                        return .orange // Time units after "in X" are orange
+                    }
+                }
+            }
+            return .brown // Default to brown for time units
+        }
+        
+        // Recurring patterns (brown)
+        if lowercased == "every" {
             return .brown
         }
         
@@ -389,12 +415,6 @@ struct SyntaxHighlightedText: View {
         if ["this", "next"].contains(lowercased) {
             return .orange
         }
-        
-        // Check for time period patterns (orange) - "in X days"
-        if lowercased == "in" {
-            return .orange
-        }
-        
         
         // Date patterns (yellow)
         if word.contains(".") && word.contains(where: { $0.isNumber }) {
@@ -418,7 +438,7 @@ struct FormatRow: View {
             Text(title)
                 .font(.system(size: 13, weight: .medium))
                 .foregroundColor(.primary)
-                .frame(width: 80, alignment: .leading) // Increased width
+                .frame(width: 100, alignment: .leading) // Increased width for "Time Periods:"
             
             if title == "Commands:" {
                 // Show syntax highlighted commands
@@ -491,7 +511,19 @@ struct FormatRow: View {
                     Text(", ")
                         .foregroundColor(.secondary)
                         .font(.system(size: 13))
-                    Text("every 3 days")
+                    Text("every")
+                        .foregroundColor(.brown)
+                        .font(.system(size: 13, weight: .medium))
+                    Text(" ")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 13))
+                    Text("3")
+                        .foregroundColor(.brown)
+                        .font(.system(size: 13, weight: .medium))
+                    Text(" ")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 13))
+                    Text("days")
                         .foregroundColor(.brown)
                         .font(.system(size: 13, weight: .medium))
                     Spacer()
@@ -569,9 +601,24 @@ struct FormatRow: View {
                     Text("5:46")
                         .foregroundColor(.red)
                         .font(.system(size: 13, weight: .medium))
-                    Text(" (uses default AM/PM)")
+                    Text(", ")
                         .foregroundColor(.secondary)
                         .font(.system(size: 13))
+                    Text("morning")
+                        .foregroundColor(.red)
+                        .font(.system(size: 13, weight: .medium))
+                    Text(", ")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 13))
+                    Text("evening")
+                        .foregroundColor(.red)
+                        .font(.system(size: 13, weight: .medium))
+                    Text(", ")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 13))
+                    Text("noon")
+                        .foregroundColor(.red)
+                        .font(.system(size: 13, weight: .medium))
                     Spacer()
                 }
             } else if title == "Dates:" {
@@ -600,7 +647,13 @@ struct FormatRow: View {
             } else if title == "Time Periods:" {
                 // Show syntax highlighted time periods
                 HStack(spacing: 0) {
-                    Text("in 3 days")
+                    Text("in")
+                        .foregroundColor(.purple)
+                        .font(.system(size: 13, weight: .medium))
+                    Text(" ")
+                        .foregroundColor(.secondary)
+                        .font(.system(size: 13))
+                    Text("3 days")
                         .foregroundColor(.orange)
                         .font(.system(size: 13, weight: .medium))
                     Text(", ")

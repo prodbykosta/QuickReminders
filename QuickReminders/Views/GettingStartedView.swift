@@ -431,7 +431,7 @@ struct FeatureRow: View {
 }
 
 #Preview {
-    GettingStartedView(reminderManager: ReminderManager()) {
+    GettingStartedView(reminderManager: ReminderManager(colorTheme: ColorThemeManager())) {
         // Getting started completed
     }
 }

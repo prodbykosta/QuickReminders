@@ -284,8 +284,7 @@ class FloatingWindowManager: ObservableObject {
     
     func setColorTheme(_ theme: ColorThemeManager) {
         colorTheme = theme
-        // Also set the color theme reference on the reminder manager
-        reminderManager?.colorTheme = theme
+        // Note: ReminderManager's colorTheme is immutable (set in init), so we don't update it here
     }
     
     private func createFloatingWindow() {
@@ -314,7 +313,7 @@ class FloatingWindowManager: ObservableObject {
         
         // Create the Spotlight-like content view
         let contentView = NSHostingView(rootView: FloatingReminderView(
-            reminderManager: reminderManager ?? ReminderManager(),
+            reminderManager: reminderManager ?? ReminderManager(colorTheme: ColorThemeManager()),
             colorTheme: colorTheme ?? ColorThemeManager(),
             onClose: { [weak self] in
                 self?.hideFloatingWindow()
@@ -408,12 +407,13 @@ struct FloatingReminderView: View {
     @State private var baseWindowHeight: CGFloat = 140 // Base height for input only
     @State private var lastCommandTime: Date = Date() // Track last command time to prevent rapid commands
     
-    private let nlParser = NLParser()
+    private var nlParser: NLParser
     let onClose: () -> Void
     
     init(reminderManager: ReminderManager, colorTheme: ColorThemeManager, onClose: @escaping () -> Void) {
         self.reminderManager = reminderManager
         self.colorTheme = colorTheme
+        self.nlParser = NLParser(colorTheme: colorTheme)
         self.onClose = onClose
     }
     

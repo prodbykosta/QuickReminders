@@ -8,10 +8,13 @@ class ReminderManager: ObservableObject {
     @Published var availableLists: [EKCalendar] = []
     @Published var selectedList: EKCalendar?
     
-    // Reference to color theme for accessing default time setting
-    weak var colorTheme: ColorThemeManager?
+    let colorTheme: ColorThemeManager
+    lazy var nlParser: NLParser = {
+        return NLParser(colorTheme: self.colorTheme)
+    }()
     
-    init() {
+    init(colorTheme: ColorThemeManager) {
+        self.colorTheme = colorTheme
         // Initialize ReminderManager
         
         // Do permission checks asynchronously to avoid blocking
@@ -619,7 +622,7 @@ class ReminderManager: ObservableObject {
             
             // If no AM/PM specified and no exact match, use default AM/PM preference
             if !cleanTime.contains("am") && !cleanTime.contains("pm") {
-                let defaultAmPm = colorTheme?.defaultAmPm ?? "AM"
+                let defaultAmPm = colorTheme.defaultAmPm
                 var preferredHour = searchHour
                 
                 if defaultAmPm == "PM" && searchHour != 12 {
@@ -653,7 +656,7 @@ class ReminderManager: ObservableObject {
                 adjustedSearchHour = 0
             } else if !cleanTime.contains("am") && !cleanTime.contains("pm") {
                 // No AM/PM specified - use default preference
-                let defaultAmPm = colorTheme?.defaultAmPm ?? "AM"
+                let defaultAmPm = colorTheme.defaultAmPm
                 if defaultAmPm == "PM" && searchHour != 12 {
                     adjustedSearchHour += 12
                 } else if defaultAmPm == "AM" && searchHour == 12 {

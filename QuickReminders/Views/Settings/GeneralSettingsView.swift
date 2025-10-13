@@ -222,6 +222,135 @@ struct GeneralSettingsView: View {
             
             Divider()
             
+            // Time Presets Settings
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "clock.badge.checkmark")
+                        .foregroundColor(.blue)
+                        .font(.title2)
+                    Text("Time Period Presets")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+                
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Natural Language Time Periods")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text("Customize the default times for natural language periods like 'morning', 'afternoon', etc. These are used when you create reminders like 'take out trash tuesday morning'.")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 16) {
+                        // Morning Time
+                        HStack {
+                            HStack(spacing: 8) {
+                                Image(systemName: "sun.max")
+                                    .foregroundColor(.orange)
+                                    .font(.system(size: 16))
+                                Text("Morning:")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .frame(width: 80, alignment: .leading)
+                            }
+                            
+                            ValidatedTimeField(time: $colorTheme.morningTime, placeholder: "8:00 AM")
+                            
+                            Spacer()
+                        }
+                        
+                        // Noon Time
+                        HStack {
+                            HStack(spacing: 8) {
+                                Image(systemName: "sun.max.fill")
+                                    .foregroundColor(.yellow)
+                                    .font(.system(size: 16))
+                                Text("Noon:")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .frame(width: 80, alignment: .leading)
+                            }
+                            
+                            ValidatedTimeField(time: $colorTheme.noonTime, placeholder: "12:00 PM")
+                            
+                            Spacer()
+                        }
+                        
+                        // Afternoon Time
+                        HStack {
+                            HStack(spacing: 8) {
+                                Image(systemName: "sun.and.horizon")
+                                    .foregroundColor(.orange)
+                                    .font(.system(size: 16))
+                                Text("Afternoon:")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .frame(width: 80, alignment: .leading)
+                            }
+                            
+                            ValidatedTimeField(time: $colorTheme.afternoonTime, placeholder: "3:00 PM")
+                            
+                            Spacer()
+                        }
+                        
+                        // Evening Time
+                        HStack {
+                            HStack(spacing: 8) {
+                                Image(systemName: "sunset")
+                                    .foregroundColor(.purple)
+                                    .font(.system(size: 16))
+                                Text("Evening:")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .frame(width: 80, alignment: .leading)
+                            }
+                            
+                            ValidatedTimeField(time: $colorTheme.eveningTime, placeholder: "6:00 PM")
+                            
+                            Spacer()
+                        }
+                        
+                        // Night Time
+                        HStack {
+                            HStack(spacing: 8) {
+                                Image(systemName: "moon.stars")
+                                    .foregroundColor(.indigo)
+                                    .font(.system(size: 16))
+                                Text("Night:")
+                                    .font(.system(size: 15, weight: .medium))
+                                    .frame(width: 80, alignment: .leading)
+                            }
+                            
+                            ValidatedTimeField(time: $colorTheme.nightTime, placeholder: "9:00 PM")
+                            
+                            Spacer()
+                        }
+                    }
+                    
+                    HStack {
+                        Image(systemName: "info.circle")
+                            .foregroundColor(.blue)
+                            .font(.system(size: 14))
+                        Text("Examples: 'dinner tomorrow evening' → \(colorTheme.eveningTime), 'meeting monday morning' → \(colorTheme.morningTime)")
+                            .font(.system(size: 13))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.top, 8)
+                }
+                .padding(.vertical, 16)
+                .padding(.horizontal, 20)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.regularMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                        )
+                )
+            }
+            
+            Divider()
+            
             // Date Format Settings
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
@@ -859,5 +988,171 @@ struct GeneralSettingsView: View {
         }
         
         // User needs to grant accessibility permissions manually
+    }
+}
+
+struct ValidatedTimeField: View {
+    @Binding var time: String
+    let placeholder: String
+    @State private var showPicker = false
+    @State private var selectedHour = 8
+    @State private var selectedMinute = 0
+    @State private var isAM = true
+    
+    var body: some View {
+        Button(action: {
+            showPicker.toggle()
+        }) {
+            Text(time.isEmpty ? placeholder : time)
+                .font(.system(.body, design: .monospaced))
+                .foregroundColor(.primary)
+                .frame(width: 100, alignment: .center)
+                .padding(.vertical, 6)
+                .padding(.horizontal, 8)
+                .background(Color(NSColor.textBackgroundColor))
+                .cornerRadius(6)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 6)
+                        .stroke(showPicker ? Color.blue : Color.secondary.opacity(0.3), lineWidth: 1)
+                )
+        }
+        .buttonStyle(.plain)
+        .popover(isPresented: $showPicker) {
+            VStack(spacing: 16) {
+                Text("Set Time")
+                    .font(.headline)
+                    .padding(.top)
+                
+                HStack(spacing: 20) {
+                    // Hour picker
+                    VStack {
+                        Text("Hour")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Menu {
+                            ForEach(1...12, id: \.self) { hour in
+                                Button("\(hour)") {
+                                    selectedHour = hour
+                                }
+                            }
+                        } label: {
+                            Text("\(selectedHour)")
+                                .font(.system(.body, design: .monospaced))
+                                .frame(width: 40, height: 30)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(6)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    Text(":")
+                        .font(.title)
+                    
+                    // Minute picker
+                    VStack {
+                        Text("Minute")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Menu {
+                            ForEach([0, 15, 30, 45], id: \.self) { minute in
+                                Button(String(format: "%02d", minute)) {
+                                    selectedMinute = minute
+                                }
+                            }
+                        } label: {
+                            Text(String(format: "%02d", selectedMinute))
+                                .font(.system(.body, design: .monospaced))
+                                .frame(width: 40, height: 30)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(6)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                                )
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    // AM/PM picker
+                    VStack {
+                        Text("AM/PM")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Picker("AM/PM", selection: $isAM) {
+                            Text("AM").tag(true)
+                            Text("PM").tag(false)
+                        }
+                        .pickerStyle(.segmented)
+                        .frame(width: 80)
+                    }
+                }
+                
+                HStack {
+                    Button("Cancel") {
+                        // Reset to current time
+                        parseCurrentTime()
+                        showPicker = false
+                    }
+                    .keyboardShortcut(.cancelAction)
+                    
+                    Button("Set") {
+                        updateTime()
+                        showPicker = false
+                    }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                }
+                .padding(.bottom)
+            }
+            .frame(width: 280)
+            .onAppear {
+                parseCurrentTime()
+            }
+        }
+        .onAppear {
+            if time.isEmpty {
+                time = placeholder
+            }
+        }
+    }
+    
+    private func parseCurrentTime() {
+        let components = time.components(separatedBy: " ")
+        guard components.count == 2 else { 
+            // Default values if parsing fails
+            selectedHour = 8
+            selectedMinute = 0
+            isAM = true
+            return 
+        }
+        
+        let timePart = components[0]
+        let ampmPart = components[1]
+        
+        let timeComponents = timePart.components(separatedBy: ":")
+        guard timeComponents.count == 2,
+              let h = Int(timeComponents[0]),
+              let m = Int(timeComponents[1]) else { 
+            // Default values if parsing fails
+            selectedHour = 8
+            selectedMinute = 0
+            isAM = true
+            return 
+        }
+        
+        selectedHour = h
+        selectedMinute = m
+        isAM = ampmPart.uppercased() == "AM"
+    }
+    
+    private func updateTime() {
+        time = String(format: "%d:%02d %@", selectedHour, selectedMinute, isAM ? "AM" : "PM")
     }
 }

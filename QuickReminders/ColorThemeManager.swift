@@ -316,21 +316,6 @@ class ColorThemeManager: ObservableObject {
         shortcutsEnabled = true
         saveColors()
     }
-}
-
-struct ColorTheme {
-    let name: String
-    let successColor: Color
-    let errorColor: Color
-    let primaryColor: Color
-    
-    static let presets: [ColorTheme] = [
-        ColorTheme(name: "Ocean", successColor: .mint, errorColor: .pink, primaryColor: .cyan),
-        ColorTheme(name: "Forest", successColor: .green, errorColor: .orange, primaryColor: .green),
-        ColorTheme(name: "Sunset", successColor: .yellow, errorColor: .red, primaryColor: .orange),
-        ColorTheme(name: "Purple", successColor: .mint, errorColor: .pink, primaryColor: .purple),
-        ColorTheme(name: "Monochrome", successColor: .gray, errorColor: .black, primaryColor: .gray)
-    ]
     
     // MARK: - Time Preset Helpers
     
@@ -381,6 +366,22 @@ struct ColorTheme {
         
         return (hour: finalHour, minute: minute)
     }
+}
+
+struct ColorTheme {
+    let name: String
+    let successColor: Color
+    let errorColor: Color
+    let primaryColor: Color
+    
+    static let presets: [ColorTheme] = [
+        ColorTheme(name: "Ocean", successColor: .mint, errorColor: .pink, primaryColor: .cyan),
+        ColorTheme(name: "Forest", successColor: .green, errorColor: .orange, primaryColor: .green),
+        ColorTheme(name: "Sunset", successColor: .yellow, errorColor: .red, primaryColor: .orange),
+        ColorTheme(name: "Purple", successColor: .mint, errorColor: .pink, primaryColor: .purple),
+        ColorTheme(name: "Monochrome", successColor: .gray, errorColor: .black, primaryColor: .gray)
+    ]
+    
 }
 
 // Safe extension to help with color conversion

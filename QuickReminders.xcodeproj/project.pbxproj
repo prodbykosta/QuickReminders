@@ -12,50 +12,40 @@
 			containerPortal = 3682DE642E8FD951002E7B7A /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3682DE6B2E8FD951002E7B7A;
-			remoteInfo = FastReminder;
+			remoteInfo = QuickReminders;
 		};
 		3682DE892E8FD953002E7B7A /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 3682DE642E8FD951002E7B7A /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = 3682DE6B2E8FD951002E7B7A;
-			remoteInfo = FastReminder;
+			remoteInfo = QuickReminders;
 		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		3682DE6C2E8FD951002E7B7A /* FastReminder.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = FastReminder.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		3682DE7E2E8FD953002E7B7A /* FastReminderTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FastReminderTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		3682DE882E8FD953002E7B7A /* FastReminderUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FastReminderUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3682DE6C2E8FD951002E7B7A /* QuickReminders.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = QuickReminders.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3682DE7E2E8FD953002E7B7A /* QuickRemindersTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QuickRemindersTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		3682DE882E8FD953002E7B7A /* QuickRemindersUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QuickRemindersUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		36D5E9772E914B3800FD9CAF /* Exceptions for "FastReminder" folder in "FastReminder" target */ = {
+		36D5E9772E914B3800FD9CAF /* Exceptions for "QuickReminders" folder in "QuickReminders" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 3682DE6B2E8FD951002E7B7A /* FastReminder */;
+			target = 3682DE6B2E8FD951002E7B7A /* QuickReminders */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		3682DE6E2E8FD951002E7B7A /* FastReminder */ = {
+		3682DE6E2E8FD951002E7B7A /* QuickReminders */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				36D5E9772E914B3800FD9CAF /* Exceptions for "FastReminder" folder in "FastReminder" target */,
+				36D5E9772E914B3800FD9CAF /* Exceptions for "QuickReminders" folder in "QuickReminders" target */,
 			);
-			path = FastReminder;
-			sourceTree = "<group>";
-		};
-		3682DE812E8FD953002E7B7A /* FastReminderTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = FastReminderTests;
-			sourceTree = "<group>";
-		};
-		3682DE8B2E8FD953002E7B7A /* FastReminderUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = FastReminderUITests;
+			path = QuickReminders;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -88,9 +78,7 @@
 		3682DE632E8FD951002E7B7A = {
 			isa = PBXGroup;
 			children = (
-				3682DE6E2E8FD951002E7B7A /* FastReminder */,
-				3682DE812E8FD953002E7B7A /* FastReminderTests */,
-				3682DE8B2E8FD953002E7B7A /* FastReminderUITests */,
+				3682DE6E2E8FD951002E7B7A /* QuickReminders */,
 				3682DE6D2E8FD951002E7B7A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -98,9 +86,9 @@
 		3682DE6D2E8FD951002E7B7A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				3682DE6C2E8FD951002E7B7A /* FastReminder.app */,
-				3682DE7E2E8FD953002E7B7A /* FastReminderTests.xctest */,
-				3682DE882E8FD953002E7B7A /* FastReminderUITests.xctest */,
+				3682DE6C2E8FD951002E7B7A /* QuickReminders.app */,
+				3682DE7E2E8FD953002E7B7A /* QuickRemindersTests.xctest */,
+				3682DE882E8FD953002E7B7A /* QuickRemindersUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -108,9 +96,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		3682DE6B2E8FD951002E7B7A /* FastReminder */ = {
+		3682DE6B2E8FD951002E7B7A /* QuickReminders */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3682DE922E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "FastReminder" */;
+			buildConfigurationList = 3682DE922E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "QuickReminders" */;
 			buildPhases = (
 				3682DE682E8FD951002E7B7A /* Sources */,
 				3682DE692E8FD951002E7B7A /* Frameworks */,
@@ -121,18 +109,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				3682DE6E2E8FD951002E7B7A /* FastReminder */,
+				3682DE6E2E8FD951002E7B7A /* QuickReminders */,
 			);
-			name = FastReminder;
+			name = QuickReminders;
 			packageProductDependencies = (
 			);
-			productName = FastReminder;
-			productReference = 3682DE6C2E8FD951002E7B7A /* FastReminder.app */;
+			productName = QuickReminders;
+			productReference = 3682DE6C2E8FD951002E7B7A /* QuickReminders.app */;
 			productType = "com.apple.product-type.application";
 		};
-		3682DE7D2E8FD953002E7B7A /* FastReminderTests */ = {
+		3682DE7D2E8FD953002E7B7A /* QuickRemindersTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3682DE952E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "FastReminderTests" */;
+			buildConfigurationList = 3682DE952E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "QuickRemindersTests" */;
 			buildPhases = (
 				3682DE7A2E8FD953002E7B7A /* Sources */,
 				3682DE7B2E8FD953002E7B7A /* Frameworks */,
@@ -143,19 +131,16 @@
 			dependencies = (
 				3682DE802E8FD953002E7B7A /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				3682DE812E8FD953002E7B7A /* FastReminderTests */,
-			);
-			name = FastReminderTests;
+			name = QuickRemindersTests;
 			packageProductDependencies = (
 			);
-			productName = FastReminderTests;
-			productReference = 3682DE7E2E8FD953002E7B7A /* FastReminderTests.xctest */;
+			productName = QuickRemindersTests;
+			productReference = 3682DE7E2E8FD953002E7B7A /* QuickRemindersTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		3682DE872E8FD953002E7B7A /* FastReminderUITests */ = {
+		3682DE872E8FD953002E7B7A /* QuickRemindersUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 3682DE982E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "FastReminderUITests" */;
+			buildConfigurationList = 3682DE982E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "QuickRemindersUITests" */;
 			buildPhases = (
 				3682DE842E8FD953002E7B7A /* Sources */,
 				3682DE852E8FD953002E7B7A /* Frameworks */,
@@ -166,14 +151,11 @@
 			dependencies = (
 				3682DE8A2E8FD953002E7B7A /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				3682DE8B2E8FD953002E7B7A /* FastReminderUITests */,
-			);
-			name = FastReminderUITests;
+			name = QuickRemindersUITests;
 			packageProductDependencies = (
 			);
-			productName = FastReminderUITests;
-			productReference = 3682DE882E8FD953002E7B7A /* FastReminderUITests.xctest */;
+			productName = QuickRemindersUITests;
+			productReference = 3682DE882E8FD953002E7B7A /* QuickRemindersUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -199,7 +181,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 3682DE672E8FD951002E7B7A /* Build configuration list for PBXProject "FastReminder" */;
+			buildConfigurationList = 3682DE672E8FD951002E7B7A /* Build configuration list for PBXProject "QuickReminders" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -213,9 +195,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				3682DE6B2E8FD951002E7B7A /* FastReminder */,
-				3682DE7D2E8FD953002E7B7A /* FastReminderTests */,
-				3682DE872E8FD953002E7B7A /* FastReminderUITests */,
+				3682DE6B2E8FD951002E7B7A /* QuickReminders */,
+				3682DE7D2E8FD953002E7B7A /* QuickRemindersTests */,
+				3682DE872E8FD953002E7B7A /* QuickRemindersUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -271,12 +253,12 @@
 /* Begin PBXTargetDependency section */
 		3682DE802E8FD953002E7B7A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 3682DE6B2E8FD951002E7B7A /* FastReminder */;
+			target = 3682DE6B2E8FD951002E7B7A /* QuickReminders */;
 			targetProxy = 3682DE7F2E8FD953002E7B7A /* PBXContainerItemProxy */;
 		};
 		3682DE8A2E8FD953002E7B7A /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 3682DE6B2E8FD951002E7B7A /* FastReminder */;
+			target = 3682DE6B2E8FD951002E7B7A /* QuickReminders */;
 			targetProxy = 3682DE892E8FD953002E7B7A /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -405,8 +387,9 @@
 		3682DE932E8FD953002E7B7A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-1";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				AUTOMATION_APPLE_EVENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -427,14 +410,15 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = FastReminder/Info.plist;
+				INFOPLIST_FILE = QuickReminders/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = QuickReminders;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.FastReminder;
+				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.QuickReminders;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
@@ -455,8 +439,9 @@
 		3682DE942E8FD953002E7B7A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-1";
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
 				AUTOMATION_APPLE_EVENTS = NO;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -477,14 +462,15 @@
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = FastReminder/Info.plist;
+				INFOPLIST_FILE = QuickReminders/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = QuickReminders;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.FastReminder;
+				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.QuickReminders;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				REGISTER_APP_GROUPS = YES;
 				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
@@ -512,14 +498,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.FastReminderTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.QuickRemindersTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FastReminder.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FastReminder";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/QuickReminders.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/QuickReminders";
 			};
 			name = Debug;
 		};
@@ -533,14 +519,14 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.FastReminderTests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.QuickRemindersTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/FastReminder.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/FastReminder";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/QuickReminders.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/QuickReminders";
 			};
 			name = Release;
 		};
@@ -552,14 +538,14 @@
 				DEVELOPMENT_TEAM = DC5FRF4GRA;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.FastReminderUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.QuickRemindersUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = FastReminder;
+				TEST_TARGET_NAME = QuickReminders;
 			};
 			name = Debug;
 		};
@@ -571,21 +557,21 @@
 				DEVELOPMENT_TEAM = DC5FRF4GRA;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.FastReminderUITests;
+				PRODUCT_BUNDLE_IDENTIFIER = com.prodbykosta.QuickRemindersUITests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = NO;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_EMIT_LOC_STRINGS = NO;
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
-				TEST_TARGET_NAME = FastReminder;
+				TEST_TARGET_NAME = QuickReminders;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		3682DE672E8FD951002E7B7A /* Build configuration list for PBXProject "FastReminder" */ = {
+		3682DE672E8FD951002E7B7A /* Build configuration list for PBXProject "QuickReminders" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3682DE902E8FD953002E7B7A /* Debug */,
@@ -594,7 +580,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3682DE922E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "FastReminder" */ = {
+		3682DE922E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "QuickReminders" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3682DE932E8FD953002E7B7A /* Debug */,
@@ -603,7 +589,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3682DE952E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "FastReminderTests" */ = {
+		3682DE952E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "QuickRemindersTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3682DE962E8FD953002E7B7A /* Debug */,
@@ -612,7 +598,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		3682DE982E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "FastReminderUITests" */ = {
+		3682DE982E8FD953002E7B7A /* Build configuration list for PBXNativeTarget "QuickRemindersUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				3682DE992E8FD953002E7B7A /* Debug */,

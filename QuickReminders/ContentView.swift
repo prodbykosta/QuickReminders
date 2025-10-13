@@ -19,8 +19,6 @@ struct ContentView: View {
     @State private var showingSettings = false
     @FocusState private var isTextFieldFocused: Bool
     
-    private let nlParser = NLParser()
-    
     var body: some View {
         VStack(spacing: 0) {
             // Beautiful Header with Gradient
@@ -287,8 +285,7 @@ struct ContentView: View {
         }
         
         // Regular reminder creation
-        nlParser.colorTheme = colorTheme
-        let parsedReminder = nlParser.parseReminderText(reminderText)
+        let parsedReminder = reminderManager.nlParser.parseReminderText(reminderText)
         
         // Check validation
         if !parsedReminder.isValid {
@@ -393,8 +390,7 @@ struct ContentView: View {
         // Attempting to move reminder
         
         // Parse the new date
-        nlParser.colorTheme = colorTheme
-        guard let newDate = nlParser.parseReminderText("dummy " + newDateText).dueDate else {
+        guard let newDate = reminderManager.nlParser.parseReminderText("dummy " + newDateText).dueDate else {
             statusMessage = "❌ Could not parse new date/time '\(newDateText)'"
             isSuccess = false
             // Failed to parse date
@@ -443,7 +439,7 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
-        .environmentObject(ReminderManager())
+        .environmentObject(ReminderManager(colorTheme: ColorThemeManager()))
         .environmentObject(HotKeyManager())
         .environmentObject(FloatingWindowManager())
 }

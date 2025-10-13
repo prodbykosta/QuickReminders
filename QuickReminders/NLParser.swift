@@ -33,156 +33,163 @@ class NLParser {
         "\\b(\\d{1,2})\\b(?!:)"
     ]
     
-    private let datePatterns = [
-        "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?",
-        "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?",
-        "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})",
-        "(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?",
-        "(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2})\\s*(am|pm)",
-        "(\\d{1,2})[./](\\d{1,2})\\.?\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?",
-        "(\\d{1,2})[./](\\d{1,2})\\.?\\s+at\\s+(\\d{1,2})\\s*(am|pm)",
-        "on\\s+(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?",
-        "on\\s+(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2})\\s*(am|pm)",
-        "(\\d{1,2}):(\\d{2})\\s*(am|pm)?\\s+(\\d{1,2})[./](\\d{1,2})\\.?",
-        "(\\d{1,2})\\s*(am|pm)\\s+(\\d{1,2})[./](\\d{1,2})\\.?",
-        "at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?\\s+(\\d{1,2})[./](\\d{1,2})\\.?",
-        "at\\s+(\\d{1,2})\\s*(am|pm)\\s+(\\d{1,2})[./](\\d{1,2})\\.?",
-        "(\\d{1,2})[./](\\d{1,2})\\.?"
-    ]
+    private let datePatterns: [String]
     
-    private let relativeDatePatterns = [
-        "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        
-        "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)",
-        "in\\s+(\\d+)\\s+(day|days)",
-        
-        // SPECIFIC: "in X weeks/months weekday" patterns (MUST come before general patterns)
-        "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        
-        "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)",
-
-        "\\b(tomorrow|tm|today|td)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "\\b(tomorrow|tm|today|td)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "\\b(tomorrow|tm|today|td)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "\\b(tomorrow|tm|today|td)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "\\b(tomorrow|tm|today|td)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-
-        "(?:on\\s+)?\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\b\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(?:on\\s+)?\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\b\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(?:on\\s+)?\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\b\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(?:on\\s+)?\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\b\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(?:on\\s+)?\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\b\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-
-        "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(\\d{1,2})[./](\\d{1,2})\\.?\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(\\d{1,2})[./](\\d{1,2})\\.?\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(\\d{1,2})[./](\\d{1,2})\\.?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-
-        "every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        
-        // Week+weekday patterns with recurring
-        "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        
-        "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        
-        // Reverse order patterns: weekday + week specifier
-        "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        
-        "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        
-        // Week+weekday patterns without recurring  
-        "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)",
-        
-        "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)",
-        
-        // Reverse order patterns without recurring
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week",
-        
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?",
-        
-        // Simple time patterns for week+weekday
-        "next\\s+week\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "next\\s+week\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "next\\s+week\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "next\\s+week\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "next\\s+week\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        
-        "next\\s+week\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "next\\s+week\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "next\\s+week\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "next\\s+week\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "next\\s+week",
-        
-        "(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\s+(morning|noon|afternoon|evening|night)",
-        "(mon|tue|wed|thu|fri|sat|sun)\\s+(morning|noon|afternoon|evening|night)",
-        
-        // Reverse order: "weekday in X weeks/months" patterns (WITHOUT recurring)
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)",
-        
-        // Reverse order: "weekday in X weeks/months" patterns (WITH recurring)
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-        "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)"
-    ]
+    private let relativeDatePatterns: [String]
 
     weak var colorTheme: ColorThemeManager?
+    
+    init(colorTheme: ColorThemeManager) {
+        self.colorTheme = colorTheme
+        self.datePatterns = [
+            "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?",
+            "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?",
+            "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})",
+            "(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?",
+            "(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2})\\s*(am|pm)",
+            "(\\d{1,2})[./](\\d{1,2})\\.?\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?",
+            "(\\d{1,2})[./](\\d{1,2})\\.?\\s+at\\s+(\\d{1,2})\\s*(am|pm)",
+            "on\\s+(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?",
+            "on\\s+(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2})\\s*(am|pm)",
+            "(\\d{1,2}):(\\d{2})\\s*(am|pm)?\\s+(\\d{1,2})[./](\\d{1,2})\\.?",
+            "(\\d{1,2})\\s*(am|pm)\\s+(\\d{1,2})[./](\\d{1,2})\\.?",
+            "at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?\\s+(\\d{1,2})[./](\\d{1,2})\\.?",
+            "at\\s+(\\d{1,2})\\s*(am|pm)\\s+(\\d{1,2})[./](\\d{1,2})\\.?",
+            "(\\d{1,2})[./](\\d{1,2})\\.?"
+        ]
+        self.relativeDatePatterns = [
+            "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            
+            "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)",
+            "in\\s+(\\d+)\\s+(day|days)",
+            
+            // SPECIFIC: "in X weeks/months weekday" patterns (MUST come before general patterns)
+            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            
+            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)",
+
+            "\\b(tomorrow|tm|today|td)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\b(tomorrow|tm|today|td)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\b(tomorrow|tm|today|td)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\b(tomorrow|tm|today|td)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\b(tomorrow|tm|today|td)\\s+(morning|noon|afternoon|evening|night)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\b(tomorrow|tm|today|td)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+
+            "(?:on\\s+)?\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\b\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(?:on\\s+)?\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\b\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(?:on\\s+)?\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\b\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(?:on\\s+)?\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\b\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(?:on\\s+)?\\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\b\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+
+            "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(\\d{1,2})[./](\\d{1,2})\\.?\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(\\d{1,2})[./](\\d{1,2})\\.?\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(\\d{1,2})[./](\\d{1,2})\\.?\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(\\d{1,2})[./](\\d{1,2})\\.?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+
+            "every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            
+            // Week+weekday patterns with recurring
+            "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            
+            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            
+            // Reverse order patterns: weekday + week specifier
+            "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            
+            "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            
+            // Week+weekday patterns without recurring  
+            "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)",
+            
+            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)",
+            
+            // Reverse order patterns without recurring
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week",
+            
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+weeks?",
+            
+            // Simple time patterns for week+weekday
+            "next\\s+week\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "next\\s+week\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "next\\s+week\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "next\\s+week\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "next\\s+week\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            
+            "next\\s+week\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "next\\s+week\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "next\\s+week\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "next\\s+week\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "next\\s+week",
+            
+            "(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\s+(morning|noon|afternoon|evening|night)",
+            "(mon|tue|wed|thu|fri|sat|sun)\\s+(morning|noon|afternoon|evening|night)",
+            
+            // Reverse order: "weekday in X weeks/months" patterns (WITHOUT recurring)
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)",
+            
+            // Reverse order: "weekday in X weeks/months" patterns (WITH recurring)
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)"
+        ]
+    }
     
     func parseReminderText(_ text: String) -> ParsedReminder {
         // Validate input
@@ -368,9 +375,11 @@ class NLParser {
             
             switch dateFormat {
             case .mmdd:
+                // MM/DD format: first value is month, second value is day
                 month = firstValue
                 day = secondValue
             case .ddmm:
+                // DD/MM format: first value is day, second value is month
                 month = secondValue
                 day = firstValue
             }
@@ -386,7 +395,7 @@ class NLParser {
             var dateComponents = DateComponents()
             dateComponents.month = month
             dateComponents.day = day
-            dateComponents.year = calendar.component(.year, from: Date())
+            dateComponents.year = calendar.component(.year, from: Date()) // Use current year for validation
             
             if calendar.date(from: dateComponents) == nil {
                 let formatName = dateFormat == .mmdd ? "MM/DD" : "DD/MM"
@@ -454,7 +463,7 @@ class NLParser {
         let inWeeksRegex = try! NSRegularExpression(pattern: "\\s+(in\\s+\\d+\\s+weeks?).*", options: .caseInsensitive)
         cleanedText = inWeeksRegex.stringByReplacingMatches(in: cleanedText, options: [], range: NSRange(location: 0, length: cleanedText.count), withTemplate: "")
         
-        let dayTimeRegex = try! NSRegularExpression(pattern: "\\s+((monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(morning|noon|afternoon|evening|night)).*", options: .caseInsensitive)
+        let dayTimeRegex = try! NSRegularExpression(pattern: "\\s+((\\d{1,2})\\s+(morning|noon|afternoon|evening|night)).*", options: .caseInsensitive)
         cleanedText = dayTimeRegex.stringByReplacingMatches(in: cleanedText, options: [], range: NSRange(location: 0, length: cleanedText.count), withTemplate: "")
         
         let untilRegex = try! NSRegularExpression(pattern: "\\s+until\\s+\\d{1,2}[./]\\d{1,2}[./]\\d{4}.*", options: .caseInsensitive)
@@ -592,7 +601,7 @@ class NLParser {
                         }
                     }
                 }
-                else if index >= 18 && index <= 22 {
+                else if index >= 18 && index <= 23 {
                     let keyword = String(processedText[Range(match.range(at: 1), in: processedText)!])
                     var hour = 9, minute = 0
                     let recurrenceGroups: (interval: Int, unit: Int)
@@ -613,6 +622,12 @@ class NLParser {
                         let time = parseTime(from: processedText, match: match, hourGroup: 2, minuteGroup: nil, ampmGroup: 3)
                         hour = time.hour; minute = time.minute
                         recurrenceGroups = (4, 5)
+                    } else if index == 22 {
+                        // Handle time period pattern: "tomorrow morning every 3 days"
+                        let timePeriod = String(processedText[Range(match.range(at: 2), in: processedText)!])
+                        let defaultTime = getDefaultTime(from: timePeriod)
+                        hour = defaultTime.hour; minute = defaultTime.minute
+                        recurrenceGroups = (3, 4)
                     } else {
                         recurrenceGroups = (2, 3)
                     }
@@ -628,24 +643,24 @@ class NLParser {
                     
                     return (calendar.date(from: startComponents), true, recurringInterval, getFrequency(from: recurringUnit), nil)
                 }
-                else if index >= 23 && index <= 27 {
+                else if index >= 24 && index <= 27 {
                     let weekdayString = String(processedText[Range(match.range(at: 1), in: processedText)!])
                     var hour = 9, minute = 0
                     let recurrenceGroups: (interval: Int, unit: Int)
 
-                    if index == 23 {
+                    if index == 24 {
                         let time = parseTime(from: processedText, match: match, hourGroup: 2, minuteGroup: 3, ampmGroup: 4)
                         hour = time.hour; minute = time.minute
                         recurrenceGroups = (5, 6)
-                    } else if index == 24 {
+                    } else if index == 25 {
                         let time = parseTime(from: processedText, match: match, hourGroup: 2, minuteGroup: nil, ampmGroup: 3)
                         hour = time.hour; minute = time.minute
                         recurrenceGroups = (4, 5)
-                    } else if index == 25 {
+                    } else if index == 26 {
                         let time = parseTime(from: processedText, match: match, hourGroup: 2, minuteGroup: 3, ampmGroup: 4)
                         hour = time.hour; minute = time.minute
                         recurrenceGroups = (5, 6)
-                    } else if index == 26 {
+                    } else if index == 27 {
                         let time = parseTime(from: processedText, match: match, hourGroup: 2, minuteGroup: nil, ampmGroup: 3)
                         hour = time.hour; minute = time.minute
                         recurrenceGroups = (4, 5)
