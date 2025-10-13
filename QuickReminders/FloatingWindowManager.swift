@@ -1490,11 +1490,14 @@ struct FloatingReminderView: View {
     }
     
     private func executeRemoveCommand(for reminder: EKReminder) {
-        do {
-            try reminderManager.eventStore.remove(reminder, commit: true)
-            showFlashFeedback(color: colorTheme.successColor, success: true)
-        } catch {
-            showFlashFeedback(color: colorTheme.errorColor, success: false)
+        reminderManager.deleteReminder(reminder) { success, error in
+            DispatchQueue.main.async {
+                if success {
+                    self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                } else {
+                    self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
+                }
+            }
         }
     }
     
@@ -1512,12 +1515,14 @@ struct FloatingReminderView: View {
             }
         } else if let targetList = targetList {
             // Handle list move
-            do {
-                reminder.calendar = targetList
-                try reminderManager.eventStore.save(reminder, commit: true)
-                showFlashFeedback(color: colorTheme.successColor, success: true)
-            } catch {
-                showFlashFeedback(color: colorTheme.errorColor, success: false)
+            reminderManager.updateReminderList(reminder, newList: targetList) { success, error in
+                DispatchQueue.main.async {
+                    if success {
+                        self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                    } else {
+                        self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
+                    }
+                }
             }
         }
     }
@@ -2232,7 +2237,7 @@ struct DuplicateReminderRow: View {
                             .font(.system(size: 11))
                             .foregroundColor(Color(reminder.calendar.cgColor))
                         
-                        if reminder.hasRecurrenceRules && !reminder.recurrenceRules.isEmpty {
+                        if reminder.hasRecurrenceRules && !(reminder.recurrenceRules?.isEmpty ?? true) {
                             Text("• Recurring")
                                 .font(.system(size: 11))
                                 .foregroundColor(.secondary)

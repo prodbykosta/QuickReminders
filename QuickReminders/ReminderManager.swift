@@ -690,6 +690,22 @@ class ReminderManager: ObservableObject {
         }
     }
     
+    func updateReminderList(_ reminder: EKReminder, newList: EKCalendar, completion: @escaping (Bool, Error?) -> Void) {
+        guard hasAccess else {
+            completion(false, ReminderError.accessDenied)
+            return
+        }
+        
+        reminder.calendar = newList
+        
+        do {
+            try eventStore.save(reminder, commit: true)
+            completion(true, nil)
+        } catch {
+            completion(false, error)
+        }
+    }
+    
     func getAllReminders(completion: @escaping ([EKReminder]) -> Void) {
         guard hasAccess else {
             // No access to reminders
