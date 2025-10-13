@@ -1059,24 +1059,25 @@ struct ValidatedTimeField: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         
-                        Menu {
-                            ForEach([0, 15, 30, 45], id: \.self) { minute in
-                                Button(String(format: "%02d", minute)) {
-                                    selectedMinute = minute
+                        TextField("00", value: $selectedMinute, format: .number)
+                            .textFieldStyle(.plain)
+                            .multilineTextAlignment(.center)
+                            .font(.system(.body, design: .monospaced))
+                            .frame(width: 40, height: 30)
+                            .background(Color(NSColor.controlBackgroundColor))
+                            .cornerRadius(6)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 6)
+                                    .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                            )
+                            .onChange(of: selectedMinute) { oldValue, newValue in
+                                // Clamp to valid minute range
+                                if newValue < 0 {
+                                    selectedMinute = 0
+                                } else if newValue > 59 {
+                                    selectedMinute = 59
                                 }
                             }
-                        } label: {
-                            Text(String(format: "%02d", selectedMinute))
-                                .font(.system(.body, design: .monospaced))
-                                .frame(width: 40, height: 30)
-                                .background(Color(NSColor.controlBackgroundColor))
-                                .cornerRadius(6)
-                                .overlay(
-                                    RoundedRectangle(cornerRadius: 6)
-                                        .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
-                                )
-                        }
-                        .buttonStyle(.plain)
                     }
                     
                     // AM/PM picker
