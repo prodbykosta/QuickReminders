@@ -1,0 +1,437 @@
+//
+//  GettingStartedView.swift
+//  QuickReminders
+//
+//  Created by QuickReminders on 04.10.2025.
+//
+
+import SwiftUI
+import EventKit
+
+enum GettingStartedScreen {
+    case welcome
+    case accessibility
+    case reminders
+    case done
+}
+
+struct GettingStartedView: View {
+    @State private var currentScreen: GettingStartedScreen = .welcome
+    @State private var accessibilityWaiting = false
+    @State private var remindersWaiting = false
+    @ObservedObject var reminderManager: ReminderManager
+    let onComplete: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Header
+            VStack(spacing: 16) {
+                Image(systemName: "bolt.fill")
+                    .font(.system(size: 48, weight: .bold))
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [.blue, .purple],
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                    )
+                
+                Text("Welcome to QuickReminders")
+                    .font(.system(size: 28, weight: .bold))
+                
+                Text("Let's get you set up in just a few steps")
+                    .font(.system(size: 16))
+                    .foregroundColor(.secondary)
+            }
+            .padding(.top, 40)
+            .padding(.bottom, 30)
+            
+            // Content based on current screen
+            Group {
+                switch currentScreen {
+                case .welcome:
+                    WelcomeScreenView(onNext: { currentScreen = .accessibility })
+                case .accessibility:
+                    AccessibilityPermissionView(
+                        waiting: $accessibilityWaiting,
+                        onNext: { currentScreen = .reminders }
+                    )
+                case .reminders:
+                    RemindersPermissionView(
+                        reminderManager: reminderManager,
+                        waiting: $remindersWaiting,
+                        onNext: { currentScreen = .done }
+                    )
+                case .done:
+                    DoneScreenView(onComplete: onComplete)
+                }
+            }
+            .frame(maxWidth: 400)
+            .padding(.horizontal, 40)
+            
+            Spacer()
+        }
+        .frame(width: 600, height: 800)
+        .background(.regularMaterial)
+    }
+}
+
+struct WelcomeScreenView: View {
+    let onNext: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            Spacer()
+            VStack(spacing: 12) {
+                Text("QuickReminders needs a few permissions to work properly:")
+                    .font(.system(size: 16, weight: .medium))
+                    .multilineTextAlignment(.center)
+                
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "accessibility")
+                            .foregroundColor(.blue)
+                            .frame(width: 20)
+                        Text("Accessibility - for global hotkey")
+                            .font(.system(size: 14))
+                    }
+                    
+                    HStack {
+                        Image(systemName: "calendar")
+                            .foregroundColor(.green)
+                            .frame(width: 20)
+                        Text("Reminders - to create and manage your reminders")
+                            .font(.system(size: 14))
+                    }
+                }
+                .padding(.top, 8)
+            }
+            
+            Button(action: onNext) {
+                Text("Get Started")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(.blue, in: RoundedRectangle(cornerRadius: 12))
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+    }
+}
+
+struct AccessibilityPermissionView: View {
+    @Binding var waiting: Bool
+    let onNext: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 12) {
+                Image(systemName: "accessibility")
+                    .font(.system(size: 32))
+                    .foregroundColor(.blue)
+                
+                Text("Accessibility Permission")
+                    .font(.system(size: 20, weight: .semibold))
+                
+                Text("QuickReminders needs Accessibility permission to register the global hotkey (⌃⇧Z)")
+                    .font(.system(size: 14))
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            
+            // Instructional Image Placeholder
+            ZStack {
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color.black.opacity(0.2))
+                    .frame(height: 150)
+                
+                VStack {
+                    Image(systemName: "video.badge.checkmark")
+                        .font(.system(size: 40))
+                        .foregroundColor(.white.opacity(0.8))
+                    Text("Instructional GIF placeholder")
+                        .font(.caption)
+                        .foregroundColor(.white.opacity(0.7))
+                }
+            }
+            
+            if waiting {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    
+                    Text("Waiting for permission...")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                    
+                    Text("Please enable QuickReminders in System Settings")
+                        .font(.system(size: 12))
+                        .foregroundColor(.orange)
+                        .multilineTextAlignment(.center)
+                }
+            } else {
+                Button(action: requestAccessibilityPermission) {
+                    Text("Open System Settings")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(.blue, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .onAppear {
+            // Check if already trusted
+            if AXIsProcessTrusted() {
+                onNext()
+            }
+        }
+    }
+    
+    private func requestAccessibilityPermission() {
+        // Open System Settings directly to Accessibility
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!
+        NSWorkspace.shared.open(url)
+        
+        // Start waiting
+        waiting = true
+        waitUntilProcessIsTrusted()
+    }
+    
+    private func waitUntilProcessIsTrusted() {
+        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 1.85) {
+            // Check if the process is trusted
+            if !AXIsProcessTrusted() {
+                // If it isn't, continue waiting
+                waitUntilProcessIsTrusted()
+            } else {
+                // If the process is trusted, go to the next screen
+                DispatchQueue.main.async {
+                    NotificationCenter.default.post(name: .accessibilityPermissionChanged, object: nil)
+                    waiting = false
+                    onNext()
+                }
+            }
+        }
+    }
+}
+
+struct RemindersPermissionView: View {
+    @ObservedObject var reminderManager: ReminderManager
+    @Binding var waiting: Bool
+    let onNext: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 12) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 32))
+                    .foregroundColor(.green)
+                
+                Text("Reminders Permission")
+                    .font(.system(size: 20, weight: .semibold))
+                
+                Text("QuickReminders needs access to your Reminders to create and manage them")
+                    .font(.system(size: 14))
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            
+            if waiting {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    
+                    Text("Waiting for permission...")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+            } else if reminderManager.hasAccess {
+                VStack(spacing: 16) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.green)
+                    
+                    Text("Permission Granted!")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.green)
+                    
+                    Button(action: onNext) {
+                        Text("Continue")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(.green, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
+                Button(action: requestRemindersPermission) {
+                    Text("Ask for Permission")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(.green, in: RoundedRectangle(cornerRadius: 12))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .onAppear {
+            // Check if already has access
+            if reminderManager.hasAccess {
+                onNext()
+            }
+        }
+    }
+    
+    private func requestRemindersPermission() {
+        waiting = true
+        reminderManager.requestPermissionManually()
+        
+        // Check periodically for permission
+        checkPermissionPeriodically()
+    }
+    
+    private func checkPermissionPeriodically() {
+        DispatchQueue.global(qos: .background).asyncAfter(deadline: .now() + 1.0) {
+            DispatchQueue.main.async {
+                reminderManager.checkAccessStatus()
+                
+                if reminderManager.hasAccess {
+                    waiting = false
+                } else {
+                    // Continue checking
+                    checkPermissionPeriodically()
+                }
+            }
+        }
+    }
+}
+
+struct DoneScreenView: View {
+    let onComplete: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 32) {
+            VStack(spacing: 20) {
+                // Celebration animation
+                ZStack {
+                    Circle()
+                        .fill(
+                            LinearGradient(
+                                colors: [.green.opacity(0.2), .blue.opacity(0.2)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                        .frame(width: 120, height: 120)
+                    
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 56, weight: .medium))
+                        .foregroundStyle(
+                            LinearGradient(
+                                colors: [.green, .mint],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                        )
+                }
+                
+                VStack(spacing: 8) {
+                    Text("🎉 You're All Set!")
+                        .font(.system(size: 28, weight: .bold))
+                    
+                    Text("QuickReminders is ready to use")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
+            }
+            
+            // Feature highlights
+            VStack(spacing: 16) {
+                FeatureRow(
+                    icon: "bolt.fill",
+                    title: "Global Hotkey",
+                    description: "Press ⌃⇧Z anywhere",
+                    color: .blue
+                )
+                
+                FeatureRow(
+                    icon: "sparkles",
+                    title: "Natural Language",
+                    description: "\"Call mom tomorrow at 3pm\"",
+                    color: .purple
+                )
+                
+                FeatureRow(
+                    icon: "calendar",
+                    title: "Smart Reminders",
+                    description: "Automatically synced",
+                    color: .green
+                )
+            }
+            .padding(.horizontal, 16)
+            
+            Button(action: onComplete) {
+                HStack(spacing: 8) {
+                    Image(systemName: "rocket.fill")
+                    Text("Start Using QuickReminders")
+                        .font(.system(size: 16, weight: .semibold))
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(
+                    LinearGradient(
+                        colors: [.blue, .purple],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    in: RoundedRectangle(cornerRadius: 16)
+                )
+                .shadow(color: .blue.opacity(0.3), radius: 8, x: 0, y: 4)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
+struct FeatureRow: View {
+    let icon: String
+    let title: String
+    let description: String
+    let color: Color
+    
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundColor(color)
+                .frame(width: 24, height: 24)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 14, weight: .semibold))
+                Text(description)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 10)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+#Preview {
+    GettingStartedView(reminderManager: ReminderManager()) {
+        // Getting started completed
+    }
+}
