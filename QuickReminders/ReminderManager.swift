@@ -187,7 +187,7 @@ class ReminderManager: ObservableObject {
         }
     }
     
-    func findReminder(withTitle title: String, searchOnlyCurrentList: Bool = false, completion: @escaping ([EKReminder]) -> Void) {
+    func findReminder(withTitle title: String, searchOnlyCurrentList: Bool = false, allowDuplicates: Bool = false, completion: @escaping ([EKReminder]) -> Void) {
         guard hasAccess else {
             // No access to reminders
             completion([])
@@ -218,7 +218,8 @@ class ReminderManager: ObservableObject {
             
             let matchingReminders = self.smartReminderMatching(
                 searchText: title,
-                reminders: reminders ?? []
+                reminders: reminders ?? [],
+                allowDuplicates: allowDuplicates
             )
             
             // Found matching reminders
@@ -230,7 +231,7 @@ class ReminderManager: ObservableObject {
     }
     
     // Enhanced search method that can handle time-specific reminders
-    func findReminderWithTimeContext(searchText: String, searchOnlyCurrentList: Bool = false, completion: @escaping ([EKReminder]) -> Void) {
+    func findReminderWithTimeContext(searchText: String, searchOnlyCurrentList: Bool = false, allowDuplicates: Bool = false, completion: @escaping ([EKReminder]) -> Void) {
         guard hasAccess else {
             // No access to reminders
             completion([])
@@ -261,7 +262,8 @@ class ReminderManager: ObservableObject {
             
             let matchingReminders = self.timeSpecificReminderMatching(
                 searchText: searchText,
-                reminders: reminders ?? []
+                reminders: reminders ?? [],
+                allowDuplicates: allowDuplicates
             )
             
             // Time-context search: Found matching reminders
@@ -273,7 +275,7 @@ class ReminderManager: ObservableObject {
     }
     
     // Smart reminder matching that can handle date/time qualifiers
-    private func smartReminderMatching(searchText: String, reminders: [EKReminder]) -> [EKReminder] {
+    private func smartReminderMatching(searchText: String, reminders: [EKReminder], allowDuplicates: Bool = false) -> [EKReminder] {
         let searchLower = searchText.lowercased()
         
         // Check if search contains date/time qualifiers
@@ -286,14 +288,14 @@ class ReminderManager: ObservableObject {
         
         if containsDateQualifier {
             // Smart matching with date qualifier
-            return smartMatchWithDateQualifier(searchText: searchLower, reminders: reminders)
+            return smartMatchWithDateQualifier(searchText: searchLower, reminders: reminders, allowDuplicates: allowDuplicates)
         } else {
             // Regular title matching
-            return simpleReminderMatching(searchText: searchLower, reminders: reminders)
+            return simpleReminderMatching(searchText: searchLower, reminders: reminders, allowDuplicates: allowDuplicates)
         }
     }
     
-    private func simpleReminderMatching(searchText: String, reminders: [EKReminder]) -> [EKReminder] {
+    private func simpleReminderMatching(searchText: String, reminders: [EKReminder], allowDuplicates: Bool = false) -> [EKReminder] {
         let titleMatches = reminders.filter { reminder in
             let reminderTitle = reminder.title?.lowercased() ?? ""
             return reminderTitle.contains(searchText)
@@ -301,11 +303,15 @@ class ReminderManager: ObservableObject {
         
         // Found simple title matches
         
-        // Handle identical names by selecting most recent
-        return selectMostRecentForIdenticalNames(titleMatches)
+        // Handle identical names by selecting most recent (unless duplicates are allowed)
+        if allowDuplicates {
+            return titleMatches
+        } else {
+            return selectMostRecentForIdenticalNames(titleMatches)
+        }
     }
     
-    private func smartMatchWithDateQualifier(searchText: String, reminders: [EKReminder]) -> [EKReminder] {
+    private func smartMatchWithDateQualifier(searchText: String, reminders: [EKReminder], allowDuplicates: Bool = false) -> [EKReminder] {
         // Parse the search text to extract title and date qualifier
         let parts = extractTitleAndDateQualifier(from: searchText)
         let titlePart = parts.title
@@ -485,7 +491,7 @@ class ReminderManager: ObservableObject {
     }
     
     // Enhanced matching for time-specific reminders
-    private func timeSpecificReminderMatching(searchText: String, reminders: [EKReminder]) -> [EKReminder] {
+    private func timeSpecificReminderMatching(searchText: String, reminders: [EKReminder], allowDuplicates: Bool = false) -> [EKReminder] {
         let searchLower = searchText.lowercased()
         // Time-specific matching
         
@@ -536,8 +542,8 @@ class ReminderManager: ObservableObject {
             // If we found exact time matches, use those. Otherwise fall back to title matches
             if timeMatches.isEmpty {
                 // No exact time matches found, falling back to title matches
-                // For title-only matches with identical names, also select most recent
-                return selectMostRecentForIdenticalNames(titleMatches)
+                // For title-only matches with identical names, also select most recent (unless duplicates allowed)
+                return allowDuplicates ? titleMatches : selectMostRecentForIdenticalNames(titleMatches)
             } else {
                 // Using exact time matches
                 return timeMatches
@@ -546,7 +552,7 @@ class ReminderManager: ObservableObject {
         
         // No time specified, return all title matches (but handle identical names)
         // No time specified, checking for identical names in title matches
-        return selectMostRecentForIdenticalNames(titleMatches)
+        return allowDuplicates ? titleMatches : selectMostRecentForIdenticalNames(titleMatches)
     }
     
     // Extract title and time parts from search text

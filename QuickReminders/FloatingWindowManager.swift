@@ -1087,13 +1087,13 @@ struct FloatingReminderView: View {
         if hasTimeInfo {
             // Using time-specific search
             // Use enhanced search that can handle time-specific reminders
-            reminderManager.findReminderWithTimeContext(searchText: searchText, searchOnlyCurrentList: colorTheme.searchOnlyCurrentList) { reminders in
+            reminderManager.findReminderWithTimeContext(searchText: searchText, searchOnlyCurrentList: colorTheme.searchOnlyCurrentList, allowDuplicates: true) { reminders in
                 self.processDeleteResult(reminders: reminders, resetProcessing: resetProcessing)
             }
         } else {
             // Using basic search
             // Use original method for basic searches
-            reminderManager.findReminder(withTitle: searchText, searchOnlyCurrentList: colorTheme.searchOnlyCurrentList) { reminders in
+            reminderManager.findReminder(withTitle: searchText, searchOnlyCurrentList: colorTheme.searchOnlyCurrentList, allowDuplicates: true) { reminders in
                 self.processDeleteResult(reminders: reminders, resetProcessing: resetProcessing)
             }
         }
@@ -1192,13 +1192,13 @@ struct FloatingReminderView: View {
         if hasTimeInSearch {
             // Using time-specific search for move
             // Use enhanced search that can handle time-specific reminders
-            reminderManager.findReminderWithTimeContext(searchText: searchText, searchOnlyCurrentList: colorTheme.searchOnlyCurrentList) { reminders in
+            reminderManager.findReminderWithTimeContext(searchText: searchText, searchOnlyCurrentList: colorTheme.searchOnlyCurrentList, allowDuplicates: true) { reminders in
                 self.processMoveResult(reminders: reminders, newDateText: newDateText, resetProcessing: resetProcessing)
             }
         } else {
             // Using basic search for move
             // Use original method for basic searches
-            reminderManager.findReminder(withTitle: searchText, searchOnlyCurrentList: colorTheme.searchOnlyCurrentList) { reminders in
+            reminderManager.findReminder(withTitle: searchText, searchOnlyCurrentList: colorTheme.searchOnlyCurrentList, allowDuplicates: true) { reminders in
                 self.processMoveResult(reminders: reminders, newDateText: newDateText, resetProcessing: resetProcessing)
             }
         }
