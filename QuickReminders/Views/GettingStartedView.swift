@@ -82,6 +82,7 @@ struct WelcomeScreenView: View {
     var body: some View {
         VStack(spacing: 24) {
             Spacer()
+                .frame(maxHeight: 40)
             VStack(spacing: 12) {
                 Text("QuickReminders needs a few permissions to work properly:")
                     .font(.system(size: 16, weight: .medium))
@@ -141,20 +142,28 @@ struct AccessibilityPermissionView: View {
                     .foregroundColor(.secondary)
             }
             
-            // Instructional Image Placeholder
-            ZStack {
+            // Instructional GIF
+            if let gifUrl = Bundle.main.url(forResource: "accessibility-instructions", withExtension: "gif") {
+                AnimatedGIFView(url: gifUrl)
+                    .aspectRatio(800/615, contentMode: .fit)
+                    .frame(maxWidth: 400)
+                    .cornerRadius(12)
+                    .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 2)
+            } else {
+                // Fallback placeholder
                 RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.black.opacity(0.2))
-                    .frame(height: 150)
-                
-                VStack {
-                    Image(systemName: "video.badge.checkmark")
-                        .font(.system(size: 40))
-                        .foregroundColor(.white.opacity(0.8))
-                    Text("Instructional GIF placeholder")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.7))
-                }
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(maxWidth: 320, maxHeight: 160)
+                    .overlay(
+                        VStack {
+                            Image(systemName: "video.badge.checkmark")
+                                .font(.system(size: 40))
+                                .foregroundColor(.gray)
+                            Text("Add accessibility-instructions.gif")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    )
             }
             
             if waiting {
@@ -427,6 +436,28 @@ struct FeatureRow: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+struct AnimatedGIFView: NSViewRepresentable {
+    let url: URL
+    
+    func makeNSView(context: Context) -> NSImageView {
+        let imageView = NSImageView()
+        imageView.imageScaling = .scaleProportionallyUpOrDown
+        imageView.animates = true
+        
+        if let image = NSImage(contentsOf: url) {
+            imageView.image = image
+        }
+        
+        return imageView
+    }
+    
+    func updateNSView(_ nsView: NSImageView, context: Context) {
+        if let image = NSImage(contentsOf: url) {
+            nsView.image = image
+        }
     }
 }
 
