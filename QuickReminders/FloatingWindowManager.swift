@@ -1274,20 +1274,17 @@ struct FloatingReminderView: View {
             }
             // Wait for hide animation to complete, then show list
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                // Resize window first for smooth appearance
+                resizeWindowForList(show: true)
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                     insideWindowState = .showingList
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    resizeWindowForList(show: true)
-                }
             }
         } else {
-            // Show list immediately if nothing was showing
+            // Show list immediately if nothing was showing - resize first
+            resizeWindowForList(show: true)
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 insideWindowState = .showingList
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                resizeWindowForList(show: true)
             }
         }
         
@@ -1512,20 +1509,17 @@ struct FloatingReminderView: View {
             }
             // Wait for hide animation to complete, then show duplicates
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                // Resize window first for smooth appearance
+                resizeWindowForDuplicateSelection(show: true)
                 withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                     insideWindowState = .showingDuplicates
                 }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    resizeWindowForDuplicateSelection(show: true)
-                }
             }
         } else {
-            // Show duplicates immediately if nothing was showing
+            // Show duplicates immediately if nothing was showing - resize first
+            resizeWindowForDuplicateSelection(show: true)
             withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
                 insideWindowState = .showingDuplicates
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                resizeWindowForDuplicateSelection(show: true)
             }
         }
         
@@ -2312,6 +2306,7 @@ struct DuplicateReminderRow: View {
     let reminder: EKReminder
     let colorTheme: ColorThemeManager
     let onSelect: () -> Void
+    @State private var isHovered = false
     
     var body: some View {
         Button(action: onSelect) {
@@ -2361,14 +2356,16 @@ struct DuplicateReminderRow: View {
         .buttonStyle(.plain)
         .background(
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.primary.opacity(0.05))
+                .fill(isHovered ? Color.blue.opacity(0.1) : Color.primary.opacity(0.05))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
-                        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+                        .stroke(isHovered ? Color.blue.opacity(0.3) : Color.primary.opacity(0.1), lineWidth: 1)
                 )
         )
-        .onHover { isHovered in
-            // Add hover effect if needed
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.15)) {
+                isHovered = hovering
+            }
         }
     }
     
