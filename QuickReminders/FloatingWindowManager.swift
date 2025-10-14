@@ -625,9 +625,11 @@ struct FloatingReminderView: View {
                     colorTheme: colorTheme,
                     filter: listFilter,
                     onClose: {
-                        resizeWindowForList(show: false)
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            insideWindowState = .hidden
+                        DispatchQueue.main.async {
+                            resizeWindowForList(show: false)
+                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                                insideWindowState = .hidden
+                            }
                         }
                     }
                 )
@@ -642,11 +644,15 @@ struct FloatingReminderView: View {
                     pendingCommand: pendingCommand,
                     colorTheme: colorTheme,
                     onReminderSelected: { selectedReminder in
-                        onSelect(selectedReminder)
-                        insideWindowState = .hidden
+                        DispatchQueue.main.async {
+                            onSelect(selectedReminder)
+                            insideWindowState = .hidden
+                        }
                     },
                     onCancel: {
-                        insideWindowState = .hidden
+                        DispatchQueue.main.async {
+                            insideWindowState = .hidden
+                        }
                     }
                 )
                 .transition(.asymmetric(
@@ -1233,8 +1239,10 @@ struct FloatingReminderView: View {
         
         // Resize window to accommodate list and show expandable reminders list
         resizeWindowForList(show: true)
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            insideWindowState = .showingList([])
+        DispatchQueue.main.async {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                insideWindowState = .showingList([])
+            }
         }
         
         // Clear text on successful list command
@@ -1444,9 +1452,11 @@ struct FloatingReminderView: View {
         
         // Resize window to accommodate duplicate selection
         resizeWindowForDuplicateSelection(show: true)
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            insideWindowState = .showingDuplicates(reminders) { selectedReminder in
-                handleDuplicateSelection(selectedReminder)
+        DispatchQueue.main.async {
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                insideWindowState = .showingDuplicates(reminders) { selectedReminder in
+                    handleDuplicateSelection(selectedReminder)
+                }
             }
         }
     }
@@ -1467,8 +1477,10 @@ struct FloatingReminderView: View {
     
     private func closeDuplicateSelection() {
         resizeWindowForDuplicateSelection(show: false)
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-            insideWindowState = .hidden
+        DispatchQueue.main.async {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                insideWindowState = .hidden
+            }
         }
         
         // Clear state
