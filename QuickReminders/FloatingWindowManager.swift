@@ -3,6 +3,12 @@ import AppKit
 import EventKit
 import Combine
 
+enum InsideWindowState {
+    case hidden
+    case showingList([EKReminder])
+    case showingDuplicates([EKReminder], (EKReminder) -> Void)
+}
+
 // Structure to hold pending commands that require duplicate selection
 struct PendingCommand {
     let type: CommandType
@@ -398,11 +404,9 @@ struct FloatingReminderView: View {
     @State private var permanentGlow = true // Always show glow with list color
     @State private var showListPicker = false
     @State private var windowAppearAnimation = false // For sexy opening animation
-    @State private var showRemindersList = false // For expandable list view
+    @State private var insideWindowState: InsideWindowState = .hidden // Mutually exclusive window state
     @State private var listFilter = "" // Filter for list display (today, scheduled, etc.)
     @State private var currentListColor: Color? = nil // Track current list color for persistence
-    @State private var showDuplicateSelection = false // For duplicate selection window
-    @State private var duplicateReminders: [EKReminder] = [] // Reminders with duplicate names
     @State private var pendingCommand: PendingCommand? = nil // Command waiting for duplicate selection
     @State private var baseWindowHeight: CGFloat = 140 // Base height for input only
     @State private var lastCommandTime: Date = Date() // Track last command time to prevent rapid commands
@@ -611,8 +615,11 @@ struct FloatingReminderView: View {
                 .padding(.top, 8)
             }
             
-            // Expandable reminders list
-            if showRemindersList {
+            // Inside window content (list or duplicate selection)
+            switch insideWindowState {
+            case .hidden:
+                EmptyView()
+            case .showingList(let reminders):
                 RemindersListView(
                     reminderManager: reminderManager,
                     colorTheme: colorTheme,
@@ -620,7 +627,7 @@ struct FloatingReminderView: View {
                     onClose: {
                         resizeWindowForList(show: false)
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                            showRemindersList = false
+                            insideWindowState = .hidden
                         }
                     }
                 )
@@ -629,19 +636,17 @@ struct FloatingReminderView: View {
                     removal: .move(edge: .top).combined(with: .opacity)
                 ))
                 .padding(.top, 12)
-            }
-            
-            // Duplicate selection view
-            if showDuplicateSelection {
+            case .showingDuplicates(let duplicateReminders, let onSelect):
                 DuplicateSelectionView(
                     duplicateReminders: duplicateReminders,
                     pendingCommand: pendingCommand,
                     colorTheme: colorTheme,
                     onReminderSelected: { selectedReminder in
-                        handleDuplicateSelection(selectedReminder)
+                        onSelect(selectedReminder)
+                        insideWindowState = .hidden
                     },
                     onCancel: {
-                        closeDuplicateSelection()
+                        insideWindowState = .hidden
                     }
                 )
                 .transition(.asymmetric(
@@ -1229,7 +1234,7 @@ struct FloatingReminderView: View {
         // Resize window to accommodate list and show expandable reminders list
         resizeWindowForList(show: true)
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            showRemindersList = true
+            insideWindowState = .showingList([])
         }
         
         // Clear text on successful list command
@@ -1435,13 +1440,14 @@ struct FloatingReminderView: View {
     // MARK: - Duplicate Selection Functions
     
     private func showDuplicateSelectionFor(reminders: [EKReminder], command: PendingCommand) {
-        duplicateReminders = reminders
         pendingCommand = command
         
         // Resize window to accommodate duplicate selection
         resizeWindowForDuplicateSelection(show: true)
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            showDuplicateSelection = true
+            insideWindowState = .showingDuplicates(reminders) { selectedReminder in
+                handleDuplicateSelection(selectedReminder)
+            }
         }
     }
     
@@ -1462,11 +1468,10 @@ struct FloatingReminderView: View {
     private func closeDuplicateSelection() {
         resizeWindowForDuplicateSelection(show: false)
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-            showDuplicateSelection = false
+            insideWindowState = .hidden
         }
         
         // Clear state
-        duplicateReminders = []
         pendingCommand = nil
         reminderText = ""
     }

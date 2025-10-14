@@ -17,7 +17,14 @@ struct ContentView: View {
     @State private var statusMessage = ""
     @State private var isSuccess = false
     @State private var showingSettings = false
+    @State private var insideWindowState: InsideWindowState = .hidden
     @FocusState private var isTextFieldFocused: Bool
+    
+    enum InsideWindowState {
+        case hidden
+        case showingList([EKReminder])
+        case showingDuplicates([EKReminder], (EKReminder) -> Void)
+    }
     
     var body: some View {
         VStack(spacing: 0) {
@@ -161,6 +168,18 @@ struct ContentView: View {
             }
             .padding(.top, 32)
             
+            switch insideWindowState {
+            case .hidden:
+                EmptyView()
+            case .showingList(let reminders):
+                RemindersDisplayView(reminders: reminders, onDismiss: { insideWindowState = .hidden })
+            case .showingDuplicates(let reminders, let action):
+                DuplicateRemindersView(reminders: reminders, onSelect: { selected in
+                    action(selected)
+                    insideWindowState = .hidden
+                }, onDismiss: { insideWindowState = .hidden })
+            }
+            
             // Status Messages
             if !statusMessage.isEmpty {
                 HStack {
@@ -279,8 +298,17 @@ struct ContentView: View {
             ["move", "reschedule", "mv"] :
             ["move", "reschedule"]
         
-        if moveKeywords.contains(where: { text.contains($0) }) {
+        if moveKeywords.contains(where: { text.starts(with: $0) }) {
             handleMoveCommand(text)
+            return
+        }
+        
+        let listKeywords = colorTheme.shortcutsEnabled ?
+            ["list", "ls"] :
+            ["list"]
+        
+        if listKeywords.contains(where: { text.starts(with: $0) }) {
+            handleListCommand()
             return
         }
         
@@ -319,6 +347,12 @@ struct ContentView: View {
         }
     }
     
+    private func handleListCommand() {
+        reminderManager.getAllReminders { reminders in
+            self.insideWindowState = .showingList(reminders)
+        }
+    }
+
     private func handleDeleteCommand(_ text: String) {
         // Extract reminder title from "delete X", "remove X", or "rm X"
         let words = text.components(separatedBy: " ")
@@ -336,7 +370,27 @@ struct ContentView: View {
         
         reminderManager.findReminder(withTitle: titleToDelete) { reminders in
             DispatchQueue.main.async {
-                if let reminderToDelete = reminders.first {
+                if reminders.count > 1 {
+                    let action = { (selectedReminder: EKReminder) in
+                        self.reminderManager.deleteReminder(selectedReminder) { success, error in
+                            DispatchQueue.main.async {
+                                if success {
+                                    self.statusMessage = "✅ Reminder deleted successfully!"
+                                    self.isSuccess = true
+                                    self.reminderText = ""
+                                } else {
+                                    self.statusMessage = "❌ Failed to delete reminder: \(error?.localizedDescription ?? "Unknown error")"
+                                    self.isSuccess = false
+                                }
+                                
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                    self.statusMessage = ""
+                                }
+                            }
+                        }
+                    }
+                    self.insideWindowState = .showingDuplicates(reminders, action)
+                } else if let reminderToDelete = reminders.first {
                     // Found reminder to delete
                     self.reminderManager.deleteReminder(reminderToDelete) { success, error in
                         DispatchQueue.main.async {
@@ -403,7 +457,27 @@ struct ContentView: View {
         
         reminderManager.findReminder(withTitle: titleToMove) { reminders in
             DispatchQueue.main.async {
-                if let reminderToMove = reminders.first {
+                if reminders.count > 1 {
+                    let action = { (selectedReminder: EKReminder) in
+                        self.reminderManager.updateReminderDate(selectedReminder, newDate: newDate) { success, error in
+                            DispatchQueue.main.async {
+                                if success {
+                                    self.statusMessage = "✅ Reminder moved successfully!"
+                                    self.isSuccess = true
+                                    self.reminderText = ""
+                                } else {
+                                    self.statusMessage = "❌ Failed to move reminder: \(error?.localizedDescription ?? "Unknown error")"
+                                    self.isSuccess = false
+                                }
+                                
+                                DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                                    self.statusMessage = ""
+                                }
+                            }
+                        }
+                    }
+                    self.insideWindowState = .showingDuplicates(reminders, action)
+                } else if let reminderToMove = reminders.first {
                     // Found reminder to move
                     self.reminderManager.updateReminderDate(reminderToMove, newDate: newDate) { success, error in
                         DispatchQueue.main.async {
