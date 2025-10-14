@@ -626,11 +626,11 @@ struct FloatingReminderView: View {
                     colorTheme: colorTheme,
                     filter: listFilter,
                     onClose: {
-                        DispatchQueue.main.async {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                            insideWindowState = .hidden
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             resizeWindowForList(show: false)
-                            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                                insideWindowState = .hidden
-                            }
                         }
                     }
                 )
@@ -646,13 +646,19 @@ struct FloatingReminderView: View {
                     colorTheme: colorTheme,
                     onReminderSelected: { selectedReminder in
                         handleDuplicateSelection(selectedReminder)
-                        DispatchQueue.main.async {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             insideWindowState = .hidden
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            resizeWindowForDuplicateSelection(show: false)
                         }
                     },
                     onCancel: {
-                        DispatchQueue.main.async {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             insideWindowState = .hidden
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                            resizeWindowForDuplicateSelection(show: false)
                         }
                     }
                 )
@@ -1238,12 +1244,12 @@ struct FloatingReminderView: View {
         // Set the filter for the expandable list
         listFilter = filter
         
-        // Resize window to accommodate list and show expandable reminders list
-        resizeWindowForList(show: true)
-        DispatchQueue.main.async {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                insideWindowState = .showingList
-            }
+        // Show list immediately, resize after animation starts
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            insideWindowState = .showingList
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            resizeWindowForList(show: true)
         }
         
         // Clear text on successful list command
@@ -1452,12 +1458,12 @@ struct FloatingReminderView: View {
         duplicateReminders = reminders
         pendingCommand = command
         
-        // Resize window to accommodate duplicate selection
-        resizeWindowForDuplicateSelection(show: true)
-        DispatchQueue.main.async {
-            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-                insideWindowState = .showingDuplicates
-            }
+        // Show duplicates immediately, resize after animation starts
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+            insideWindowState = .showingDuplicates
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            resizeWindowForDuplicateSelection(show: true)
         }
     }
     
@@ -1476,11 +1482,11 @@ struct FloatingReminderView: View {
     }
     
     private func closeDuplicateSelection() {
-        resizeWindowForDuplicateSelection(show: false)
-        DispatchQueue.main.async {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-                insideWindowState = .hidden
-            }
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            insideWindowState = .hidden
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            resizeWindowForDuplicateSelection(show: false)
         }
         
         // Clear state
