@@ -411,6 +411,7 @@ struct FloatingReminderView: View {
     @State private var pendingCommand: PendingCommand? = nil // Command waiting for duplicate selection
     @State private var baseWindowHeight: CGFloat = 140 // Base height for input only
     @State private var lastCommandTime: Date = Date() // Track last command time to prevent rapid commands
+    @State private var isTransitioning = false // Prevent multiple simultaneous state transitions
     
     private var nlParser: NLParser
     let onClose: () -> Void
@@ -626,11 +627,17 @@ struct FloatingReminderView: View {
                     colorTheme: colorTheme,
                     filter: listFilter,
                     onClose: {
+                        guard !isTransitioning else { return }
+                        isTransitioning = true
+                        
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             insideWindowState = .hidden
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             resizeWindowForList(show: false)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                            isTransitioning = false
                         }
                     }
                 )
@@ -645,6 +652,9 @@ struct FloatingReminderView: View {
                     pendingCommand: pendingCommand,
                     colorTheme: colorTheme,
                     onReminderSelected: { selectedReminder in
+                        guard !isTransitioning else { return }
+                        isTransitioning = true
+                        
                         handleDuplicateSelection(selectedReminder)
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             insideWindowState = .hidden
@@ -652,13 +662,22 @@ struct FloatingReminderView: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             resizeWindowForDuplicateSelection(show: false)
                         }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                            isTransitioning = false
+                        }
                     },
                     onCancel: {
+                        guard !isTransitioning else { return }
+                        isTransitioning = true
+                        
                         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
                             insideWindowState = .hidden
                         }
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             resizeWindowForDuplicateSelection(show: false)
+                        }
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                            isTransitioning = false
                         }
                     }
                 )
@@ -1244,12 +1263,19 @@ struct FloatingReminderView: View {
         // Set the filter for the expandable list
         listFilter = filter
         
+        // Guard against rapid state changes
+        guard !isTransitioning else { return }
+        isTransitioning = true
+        
         // Show list immediately, resize after animation starts
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             insideWindowState = .showingList
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             resizeWindowForList(show: true)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            isTransitioning = false
         }
         
         // Clear text on successful list command
@@ -1458,12 +1484,19 @@ struct FloatingReminderView: View {
         duplicateReminders = reminders
         pendingCommand = command
         
+        // Guard against rapid state changes
+        guard !isTransitioning else { return }
+        isTransitioning = true
+        
         // Show duplicates immediately, resize after animation starts
         withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
             insideWindowState = .showingDuplicates
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
             resizeWindowForDuplicateSelection(show: true)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            isTransitioning = false
         }
     }
     
@@ -1482,11 +1515,17 @@ struct FloatingReminderView: View {
     }
     
     private func closeDuplicateSelection() {
+        guard !isTransitioning else { return }
+        isTransitioning = true
+        
         withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
             insideWindowState = .hidden
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             resizeWindowForDuplicateSelection(show: false)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+            isTransitioning = false
         }
         
         // Clear state
