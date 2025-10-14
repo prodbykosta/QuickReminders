@@ -1267,14 +1267,31 @@ struct FloatingReminderView: View {
         guard !isTransitioning else { return }
         isTransitioning = true
         
-        // Show list immediately, resize after animation starts
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            insideWindowState = .showingList
+        // First hide any existing view
+        if insideWindowState != .hidden {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                insideWindowState = .hidden
+            }
+            // Wait for hide animation to complete, then show list
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    insideWindowState = .showingList
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    resizeWindowForList(show: true)
+                }
+            }
+        } else {
+            // Show list immediately if nothing was showing
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                insideWindowState = .showingList
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                resizeWindowForList(show: true)
+            }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            resizeWindowForList(show: true)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             isTransitioning = false
         }
         
@@ -1488,14 +1505,31 @@ struct FloatingReminderView: View {
         guard !isTransitioning else { return }
         isTransitioning = true
         
-        // Show duplicates immediately, resize after animation starts
-        withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
-            insideWindowState = .showingDuplicates
+        // First hide any existing view
+        if insideWindowState != .hidden {
+            withAnimation(.spring(response: 0.3, dampingFraction: 0.9)) {
+                insideWindowState = .hidden
+            }
+            // Wait for hide animation to complete, then show duplicates
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                    insideWindowState = .showingDuplicates
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    resizeWindowForDuplicateSelection(show: true)
+                }
+            }
+        } else {
+            // Show duplicates immediately if nothing was showing
+            withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                insideWindowState = .showingDuplicates
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                resizeWindowForDuplicateSelection(show: true)
+            }
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            resizeWindowForDuplicateSelection(show: true)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+        
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
             isTransitioning = false
         }
     }
