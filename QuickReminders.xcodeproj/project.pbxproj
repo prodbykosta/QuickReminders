@@ -396,7 +396,7 @@
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = QuickReminders/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuickReminders;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
@@ -449,7 +449,7 @@
 				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				ENABLE_RESOURCE_ACCESS_PRINTING = NO;
 				ENABLE_RESOURCE_ACCESS_USB = NO;
-				GENERATE_INFOPLIST_FILE = YES;
+				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = QuickReminders/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = QuickReminders;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
