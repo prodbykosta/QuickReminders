@@ -699,6 +699,47 @@ class ReminderManager: ObservableObject {
         }
     }
     
+    func updateReminderDateAndRecurrence(_ reminder: EKReminder, newDate: Date, isRecurring: Bool, interval: Int?, frequency: EKRecurrenceFrequency?, endDate: Date?, completion: @escaping (Bool, Error?) -> Void) {
+        guard hasAccess else {
+            completion(false, ReminderError.accessDenied)
+            return
+        }
+        
+        // Update date
+        let dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: newDate)
+        reminder.dueDateComponents = dueDateComponents
+        
+        // Clear existing recurrence rules
+        if let existingRules = reminder.recurrenceRules {
+            for rule in existingRules {
+                reminder.removeRecurrenceRule(rule)
+            }
+        }
+        
+        // Add new recurrence if specified
+        if isRecurring, let interval = interval, let frequency = frequency {
+            var recurrenceEnd: EKRecurrenceEnd? = nil
+            if let endDate = endDate {
+                recurrenceEnd = EKRecurrenceEnd(end: endDate)
+            }
+            
+            let recurrenceRule = EKRecurrenceRule(
+                recurrenceWith: frequency,
+                interval: interval,
+                end: recurrenceEnd
+            )
+            
+            reminder.addRecurrenceRule(recurrenceRule)
+        }
+        
+        do {
+            try eventStore.save(reminder, commit: true)
+            completion(true, nil)
+        } catch {
+            completion(false, error)
+        }
+    }
+
     func updateReminderList(_ reminder: EKReminder, newList: EKCalendar, completion: @escaping (Bool, Error?) -> Void) {
         guard hasAccess else {
             completion(false, ReminderError.accessDenied)

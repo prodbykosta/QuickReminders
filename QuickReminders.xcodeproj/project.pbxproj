@@ -29,22 +29,9 @@
 		3682DE882E8FD953002E7B7A /* QuickRemindersUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = QuickRemindersUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		36D5E9772E914B3800FD9CAF /* Exceptions for "QuickReminders" folder in "QuickReminders" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = 3682DE6B2E8FD951002E7B7A /* QuickReminders */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		3682DE6E2E8FD951002E7B7A /* QuickReminders */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				36D5E9772E914B3800FD9CAF /* Exceptions for "QuickReminders" folder in "QuickReminders" target */,
-			);
 			path = QuickReminders;
 			sourceTree = "<group>";
 		};

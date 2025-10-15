@@ -209,6 +209,25 @@ class NLParser {
         
         let lowercaseText = text.lowercased()
         let title = extractTitle(from: text)
+        
+        // Try smart parsing first
+        let smartResult = smartParse(from: lowercaseText)
+        if smartResult.dueDate != nil {
+            // Extract smart title that only removes detected scheduling phrases
+            let smartTitle = extractSmartTitle(from: text, detectedPhrases: smartResult.detectedPhrases)
+            return ParsedReminder(
+                title: smartTitle,
+                dueDate: smartResult.dueDate,
+                isRecurring: smartResult.isRecurring,
+                recurrenceInterval: smartResult.interval,
+                recurrenceFrequency: smartResult.frequency,
+                recurrenceEndDate: smartResult.endDate,
+                isValid: true,
+                errorMessage: nil
+            )
+        }
+        
+        // Fall back to original parsing
         let (dueDate, isRecurring, interval, frequency, endDate) = extractDueDateWithRecurrence(from: lowercaseText)
         
         // Validate parsed result
@@ -224,6 +243,398 @@ class NLParser {
             isValid: parsedValidation.isValid,
             errorMessage: parsedValidation.errorMessage
         )
+    }
+    
+    // Smart parsing that detects phrases anywhere in the text
+    private func smartParse(from text: String) -> (dueDate: Date?, isRecurring: Bool, interval: Int?, frequency: EKRecurrenceFrequency?, endDate: Date?, detectedPhrases: [String]) {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        var detectedPhrases: [String] = []
+        
+        // 1. Detect recurrence patterns anywhere in text
+        let recurrenceInfo = detectRecurrence(in: text, detectedPhrases: &detectedPhrases)
+        
+        // 2. Detect weekday anywhere in text
+        let weekdayInfo = detectWeekday(in: text, detectedPhrases: &detectedPhrases)
+        
+        // 3. Detect time anywhere in text
+        let timeInfo = detectTime(in: text, detectedPhrases: &detectedPhrases)
+        
+        // 4. Detect date patterns (10.23, 12/15, etc.)
+        let datePatternInfo = detectDatePattern(in: text, detectedPhrases: &detectedPhrases)
+        
+        // 5. Detect relative dates (tomorrow, today)
+        let relativeDateInfo = detectRelativeDate(in: text, detectedPhrases: &detectedPhrases)
+        
+        // 6. Combine the information to create a date
+        if let recurrence = recurrenceInfo {
+            // We have recurrence, figure out the start date
+            var startDate: Date?
+            var hour = 9, minute = 0
+            
+            // Use time if found
+            if let time = timeInfo {
+                hour = time.hour
+                minute = time.minute
+            }
+            
+            // Determine start date
+            if let datePattern = datePatternInfo {
+                // Use specific date pattern (10.23, 12/15, etc.)
+                var components = DateComponents()
+                components.year = calendar.component(.year, from: now)
+                components.month = datePattern.month
+                components.day = datePattern.day
+                components.hour = hour
+                components.minute = minute
+                
+                if let targetDate = calendar.date(from: components) {
+                    // If the date is in the past, move to next year
+                    startDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                }
+            } else if let weekday = weekdayInfo {
+                // Find next occurrence of this weekday
+                let targetWeekday = weekday.weekdayNumber
+                var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: now)
+                if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: now)
+            } else if let daysFromNow = relativeDateInfo.daysFromNow {
+                // Use "in X days/weeks/months" pattern
+                startDate = calendar.date(byAdding: .day, value: daysFromNow, to: now)
+            } else if let isToday = relativeDateInfo.isToday {
+                // Use relative date (tomorrow/today)
+                let daysToAdd = isToday ? 0 : 1
+                startDate = calendar.date(byAdding: .day, value: daysToAdd, to: now)
+            } else {
+                // Default to next week if no specific date given
+                startDate = calendar.date(byAdding: .weekOfYear, value: 1, to: now)
+            }
+            
+            if let start = startDate {
+                var components = calendar.dateComponents([.year, .month, .day], from: start)
+                components.hour = hour
+                components.minute = minute
+                let finalDate = calendar.date(from: components)
+                
+                return (finalDate, true, recurrence.interval, recurrence.frequency, nil, detectedPhrases)
+            }
+        }
+        
+        // Handle non-recurring cases with smart detection
+        if let datePattern = datePatternInfo {
+            // Handle specific date patterns without recurrence
+            var hour = 9, minute = 0
+            if let time = timeInfo {
+                hour = time.hour
+                minute = time.minute
+            }
+            
+            var components = DateComponents()
+            components.year = calendar.component(.year, from: now)
+            components.month = datePattern.month
+            components.day = datePattern.day
+            components.hour = hour
+            components.minute = minute
+            
+            if let targetDate = calendar.date(from: components) {
+                let finalDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                return (finalDate, false, nil, nil, nil, detectedPhrases)
+            }
+        } else if let weekday = weekdayInfo {
+            // Handle weekday without recurrence
+            var hour = 9, minute = 0
+            if let time = timeInfo {
+                hour = time.hour
+                minute = time.minute
+            }
+            
+            let targetWeekday = weekday.weekdayNumber
+            var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: now)
+            if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+            
+            if let startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: now) {
+                var components = calendar.dateComponents([.year, .month, .day], from: startDate)
+                components.hour = hour
+                components.minute = minute
+                let finalDate = calendar.date(from: components)
+                return (finalDate, false, nil, nil, nil, detectedPhrases)
+            }
+        } else if let daysFromNow = relativeDateInfo.daysFromNow {
+            // Handle "in X days" without recurrence
+            var hour = 9, minute = 0
+            if let time = timeInfo {
+                hour = time.hour
+                minute = time.minute
+            }
+            
+            if let startDate = calendar.date(byAdding: .day, value: daysFromNow, to: now) {
+                var components = calendar.dateComponents([.year, .month, .day], from: startDate)
+                components.hour = hour
+                components.minute = minute
+                let finalDate = calendar.date(from: components)
+                return (finalDate, false, nil, nil, nil, detectedPhrases)
+            }
+        } else if let isToday = relativeDateInfo.isToday {
+            // Handle today/tomorrow without recurrence
+            var hour = 9, minute = 0
+            if let time = timeInfo {
+                hour = time.hour
+                minute = time.minute
+            }
+            
+            let daysToAdd = isToday ? 0 : 1
+            if let startDate = calendar.date(byAdding: .day, value: daysToAdd, to: now) {
+                var components = calendar.dateComponents([.year, .month, .day], from: startDate)
+                components.hour = hour
+                components.minute = minute
+                let finalDate = calendar.date(from: components)
+                return (finalDate, false, nil, nil, nil, detectedPhrases)
+            }
+        } else if let time = timeInfo {
+            // Handle time-only changes (like "evening", "3pm")
+            var components = calendar.dateComponents([.year, .month, .day], from: now)
+            components.hour = time.hour
+            components.minute = time.minute
+            let finalDate = calendar.date(from: components)
+            return (finalDate, false, nil, nil, nil, detectedPhrases)
+        }
+        
+        return (nil, false, nil, nil, nil, [])
+    }
+    
+    private func detectRecurrence(in text: String, detectedPhrases: inout [String]) -> (interval: Int, frequency: EKRecurrenceFrequency)? {
+        // Look for "every week", "every X days", etc. anywhere in text
+        let patterns = [
+            ("every\\s+week", 1, EKRecurrenceFrequency.weekly),
+            ("every\\s+(\\d+)\\s+weeks?", nil, EKRecurrenceFrequency.weekly),
+            ("every\\s+day", 1, EKRecurrenceFrequency.daily),
+            ("every\\s+(\\d+)\\s+days?", nil, EKRecurrenceFrequency.daily),
+            ("every\\s+month", 1, EKRecurrenceFrequency.monthly),
+            ("every\\s+(\\d+)\\s+months?", nil, EKRecurrenceFrequency.monthly)
+        ]
+        
+        for (pattern, defaultInterval, frequency) in patterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: text.count)) {
+                
+                // Record the detected phrase
+                let matchedText = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedText)
+                
+                var interval = defaultInterval ?? 1
+                if match.numberOfRanges > 1 {
+                    let intervalRange = match.range(at: 1)
+                    if intervalRange.location != NSNotFound {
+                        let intervalStr = String(text[Range(intervalRange, in: text)!])
+                        interval = Int(intervalStr) ?? 1
+                    }
+                }
+                
+                return (interval, frequency)
+            }
+        }
+        
+        return nil
+    }
+    
+    private func detectWeekday(in text: String, detectedPhrases: inout [String]) -> (name: String, weekdayNumber: Int)? {
+        let weekdays = [
+            ("monday", 2), ("mon", 2),
+            ("tuesday", 3), ("tue", 3),
+            ("wednesday", 4), ("wed", 4),
+            ("thursday", 5), ("thu", 5),
+            ("friday", 6), ("fri", 6),
+            ("saturday", 7), ("sat", 7),
+            ("sunday", 1), ("sun", 1)
+        ]
+        
+        for (name, number) in weekdays {
+            if text.contains(name) {
+                detectedPhrases.append(name)
+                return (name, number)
+            }
+        }
+        
+        return nil
+    }
+    
+    private func detectTime(in text: String, detectedPhrases: inout [String]) -> (hour: Int, minute: Int)? {
+        // First check for preset time periods like "morning", "evening", etc.
+        // Order matters: longer words first to avoid "noon" matching inside "afternoon"
+        let presetTimes = ["afternoon", "morning", "evening", "night", "noon"]
+        for preset in presetTimes {
+            if text.lowercased().contains(preset) {
+                detectedPhrases.append(preset)
+                if let timeComponents = colorTheme?.getTimeComponents(for: preset) {
+                    return timeComponents
+                }
+                // Fallback defaults if colorTheme is not available
+                switch preset {
+                case "morning": return (8, 0)
+                case "noon": return (12, 0)
+                case "afternoon": return (15, 0)
+                case "evening": return (18, 0)
+                case "night": return (21, 0)
+                default: break
+                }
+            }
+        }
+        
+        // Look for time patterns anywhere
+        let timePatterns = [
+            "\\b(\\d{1,2}):(\\d{2})\\s*(am|pm)?",           // 10:30am, 10:30
+            "\\b(\\d{1,2})\\s*(am|pm)",                    // 10am, 10pm
+            "\\b(\\d{1,2})(?!:)(?![/.]|\\s+(days?|weeks?|months?))"  // 10 (standalone number, not followed by days/weeks/months)
+        ]
+        
+        for pattern in timePatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: text.count)) {
+                
+                // Record the detected phrase
+                let matchedText = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedText)
+                
+                var hour = 9, minute = 0
+                
+                // Extract hour
+                let hourRange = match.range(at: 1)
+                if hourRange.location != NSNotFound {
+                    let hourStr = String(text[Range(hourRange, in: text)!])
+                    hour = Int(hourStr) ?? 9
+                }
+                
+                // Extract minute if present
+                if match.numberOfRanges > 2 && pattern.contains(":") {
+                    let minuteRange = match.range(at: 2)
+                    if minuteRange.location != NSNotFound {
+                        let minuteStr = String(text[Range(minuteRange, in: text)!])
+                        minute = Int(minuteStr) ?? 0
+                    }
+                }
+                
+                // Handle AM/PM
+                if match.numberOfRanges > 2 {
+                    let ampmIndex = pattern.contains(":") ? 3 : 2
+                    if ampmIndex < match.numberOfRanges {
+                        let ampmRange = match.range(at: ampmIndex)
+                        if ampmRange.location != NSNotFound {
+                            let ampmStr = String(text[Range(ampmRange, in: text)!]).lowercased()
+                            if ampmStr == "pm" && hour != 12 {
+                                hour += 12
+                            } else if ampmStr == "am" && hour == 12 {
+                                hour = 0
+                            }
+                        } else {
+                            // No AM/PM specified, use default preference
+                            let defaultAmPm = colorTheme?.defaultAmPm ?? "AM"
+                            if defaultAmPm == "PM" && hour < 12 {
+                                hour += 12
+                            }
+                        }
+                    }
+                }
+                
+                return (hour, minute)
+            }
+        }
+        
+        return nil
+    }
+    
+    private func detectRelativeDate(in text: String, detectedPhrases: inout [String]) -> (isToday: Bool?, daysFromNow: Int?) {
+        // Check for "in X days/weeks/months" patterns
+        let inPatterns = [
+            ("in\\s+(\\d+)\\s+days?", 1),     // "in 3 days" -> multiply by 1
+            ("in\\s+(\\d+)\\s+weeks?", 7),    // "in 2 weeks" -> multiply by 7
+            ("in\\s+(\\d+)\\s+months?", 30)   // "in 1 month" -> multiply by 30
+        ]
+        
+        for (pattern, multiplier) in inPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: text.count)) {
+                
+                let matchedText = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedText)
+                
+                let numberRange = match.range(at: 1)
+                if numberRange.location != NSNotFound {
+                    let numberStr = String(text[Range(numberRange, in: text)!])
+                    if let number = Int(numberStr) {
+                        return (nil, number * multiplier)
+                    }
+                }
+            }
+        }
+        
+        // Check for today/tomorrow patterns
+        if text.contains("today") || text.contains("td") {
+            if text.contains("today") { detectedPhrases.append("today") }
+            if text.contains("td") { detectedPhrases.append("td") }
+            return (true, nil)  // isToday = true
+        } else if text.contains("tomorrow") || text.contains("tm") {
+            if text.contains("tomorrow") { detectedPhrases.append("tomorrow") }
+            if text.contains("tm") { detectedPhrases.append("tm") }
+            return (false, nil) // isToday = false (tomorrow)
+        }
+        
+        return (nil, nil)
+    }
+    
+    private func detectDatePattern(in text: String, detectedPhrases: inout [String]) -> (month: Int, day: Int)? {
+        // Look for date patterns like "10.23", "12/15", "10/26", etc.
+        let datePatterns = [
+            "\\b(\\d{1,2})[./](\\d{1,2})\\b"
+        ]
+        
+        for pattern in datePatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: text.count)) {
+                
+                let matchedText = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedText)
+                
+                let firstValue = Int(String(text[Range(match.range(at: 1), in: text)!])) ?? 0
+                let secondValue = Int(String(text[Range(match.range(at: 2), in: text)!])) ?? 0
+                
+                // Use existing parseDateComponents function to handle MM/DD vs DD/MM format
+                return parseDateComponents(firstValue: firstValue, secondValue: secondValue)
+            }
+        }
+        
+        return nil
+    }
+    
+    // Extract title by removing only the detected scheduling phrases
+    private func extractSmartTitle(from text: String, detectedPhrases: [String]) -> String {
+        var cleanedText = text
+        
+        // Remove each detected phrase with surrounding context
+        for phrase in detectedPhrases {
+            // Remove the phrase with optional prepositions before/after
+            let patterns = [
+                "\\s+in\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",  // " in 3 days"
+                "\\s+on\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",  // " on monday"
+                "\\s+at\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",  // " at 10am"
+                "\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",       // " every week"
+                "^in\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",    // "in 3 days" at start
+                "^on\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",    // "on monday" at start
+                "^at\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",    // "at 10am" at start
+                "^\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)"           // "every week" at start
+            ]
+            
+            for pattern in patterns {
+                cleanedText = cleanedText.replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+            }
+        }
+        
+        // Clean up extra spaces, leftover prepositions, and return
+        cleanedText = cleanedText.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        cleanedText = cleanedText.replacingOccurrences(of: "\\s+(in|on|at)\\s*$", with: "", options: .regularExpression)
+        cleanedText = cleanedText.replacingOccurrences(of: "^(in|on|at)\\s+", with: "", options: .regularExpression)
+        
+        return cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     
     private func validateInput(_ text: String) -> (isValid: Bool, errorMessage: String?) {

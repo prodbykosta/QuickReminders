@@ -15,6 +15,10 @@ struct PendingCommand {
     let query: String
     let targetDate: Date?
     let targetList: EKCalendar?
+    let isRecurring: Bool
+    let recurrenceInterval: Int?
+    let recurrenceFrequency: EKRecurrenceFrequency?
+    let recurrenceEndDate: Date?
     
     enum CommandType {
         case remove
@@ -1146,7 +1150,8 @@ struct FloatingReminderView: View {
             "from \\d{1,2}(am|pm|AM|PM)",         // from 9pm, from 9AM
             "\\d{1,2}[./]\\d{1,2}\\.?\\s+\\d{1,2}(am|pm|AM|PM)", // 6.10 9pm, 6/10 9AM
             "\\d{1,2}[./]\\d{1,2}\\.?\\s+at\\s+\\d{1,2}(am|pm|AM|PM)", // 6.10 at 9pm
-            "\\d{1,2}[./]\\d{1,2}\\.?\\s+\\d{1,2}:\\d{2}(am|pm|AM|PM)?" // 6.10 9:45pm, 6/10 21:45
+            "\\d{1,2}[./]\\d{1,2}\\.?\\s+\\d{1,2}:\\d{2}(am|pm|AM|PM)?", // 6.10 9:45pm, 6/10 21:45
+            "\\b(morning|noon|afternoon|evening|night)\\b" // Preset times
         ]
         
         for (_, pattern) in timePatterns.enumerated() {
@@ -1182,7 +1187,11 @@ struct FloatingReminderView: View {
                     type: .remove,
                     query: "", // Not needed for remove
                     targetDate: nil,
-                    targetList: nil
+                    targetList: nil,
+                    isRecurring: false,
+                    recurrenceInterval: nil,
+                    recurrenceFrequency: nil,
+                    recurrenceEndDate: nil
                 )
                 
                 // Clear text since we found reminders and will show selection
@@ -1362,7 +1371,7 @@ struct FloatingReminderView: View {
     }
     
     private func processSingleReminderMove(_ reminderToMove: EKReminder, newDateText: String, resetProcessing: @escaping () -> Void) {
-        // Parse the new date/time
+        // Parse the new date/time and recurrence using smart parsing
         self.nlParser.colorTheme = self.colorTheme
         let enhancedDateText: String
         if newDateText.trimmingCharacters(in: .whitespacesAndNewlines).range(of: "^\\d{1,2}$", options: .regularExpression) != nil {
@@ -1379,12 +1388,14 @@ struct FloatingReminderView: View {
             return
         }
         
+        // Check if the move command includes recurrence
+        let hasRecurrence = parsedResult.isRecurring
+        
         // Smart date combination logic
         let calendar = Calendar.current
         let newDate: Date
         
-        // If newDateText contains explicit date words (today, tomorrow, monday, etc.)
-        // use the parsed date as-is
+        // Apply smart date combination logic for both recurring and non-recurring moves
         let dateKeywords = ["today", "td", "tomorrow", "tm", "monday", "mon", "tuesday", "tue", "wednesday", "wed", "thursday", "thu", "friday", "fri", "saturday", "sat", "sunday", "sun", "next week", "next month"]
         let datePatterns = ["\\d{1,2}[./]\\d{1,2}"] // Match date patterns like 6.10, 6/10
         let containsDateKeyword = dateKeywords.contains { newDateText.lowercased().contains($0) }
@@ -1429,14 +1440,36 @@ struct FloatingReminderView: View {
             newDate = calendar.date(from: combinedComponents) ?? parsedDate
         }
         
-        self.reminderManager.updateReminderDate(reminderToMove, newDate: newDate) { success, error in
-            DispatchQueue.main.async {
-                resetProcessing()
-                
-                if success {
-                    self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
-                } else {
-                    self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
+        // Use the appropriate update function based on whether recurrence is involved
+        if hasRecurrence {
+            self.reminderManager.updateReminderDateAndRecurrence(
+                reminderToMove,
+                newDate: newDate,
+                isRecurring: parsedResult.isRecurring,
+                interval: parsedResult.recurrenceInterval,
+                frequency: parsedResult.recurrenceFrequency,
+                endDate: parsedResult.recurrenceEndDate
+            ) { success, error in
+                DispatchQueue.main.async {
+                    resetProcessing()
+                    
+                    if success {
+                        self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                    } else {
+                        self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
+                    }
+                }
+            }
+        } else {
+            self.reminderManager.updateReminderDate(reminderToMove, newDate: newDate) { success, error in
+                DispatchQueue.main.async {
+                    resetProcessing()
+                    
+                    if success {
+                        self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                    } else {
+                        self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
+                    }
                 }
             }
         }
@@ -1474,7 +1507,11 @@ struct FloatingReminderView: View {
                     type: .move,
                     query: newDateText,
                     targetDate: parsedDate,
-                    targetList: nil
+                    targetList: nil,
+                    isRecurring: parsedResult.isRecurring,
+                    recurrenceInterval: parsedResult.recurrenceInterval,
+                    recurrenceFrequency: parsedResult.recurrenceFrequency,
+                    recurrenceEndDate: parsedResult.recurrenceEndDate
                 )
                 
                 // Clear text since we found reminders and will show selection
@@ -1538,7 +1575,7 @@ struct FloatingReminderView: View {
         case .remove:
             executeRemoveCommand(for: selectedReminder)
         case .move:
-            executeMoveCommand(for: selectedReminder, targetDate: command.targetDate, targetList: command.targetList)
+            executeMoveCommand(for: selectedReminder, command: command)
         }
     }
     
@@ -1600,19 +1637,38 @@ struct FloatingReminderView: View {
         }
     }
     
-    private func executeMoveCommand(for reminder: EKReminder, targetDate: Date?, targetList: EKCalendar?) {
-        if let targetDate = targetDate {
-            // Use the proper move logic that handles date/time parsing correctly
-            reminderManager.updateReminderDate(reminder, newDate: targetDate) { success, error in
-                DispatchQueue.main.async {
-                    if success {
-                        self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
-                    } else {
-                        self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
+    private func executeMoveCommand(for reminder: EKReminder, command: PendingCommand) {
+        if let targetDate = command.targetDate {
+            // Use the appropriate update function based on whether recurrence is involved
+            if command.isRecurring {
+                reminderManager.updateReminderDateAndRecurrence(
+                    reminder,
+                    newDate: targetDate,
+                    isRecurring: command.isRecurring,
+                    interval: command.recurrenceInterval,
+                    frequency: command.recurrenceFrequency,
+                    endDate: command.recurrenceEndDate
+                ) { success, error in
+                    DispatchQueue.main.async {
+                        if success {
+                            self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                        } else {
+                            self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
+                        }
+                    }
+                }
+            } else {
+                reminderManager.updateReminderDate(reminder, newDate: targetDate) { success, error in
+                    DispatchQueue.main.async {
+                        if success {
+                            self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                        } else {
+                            self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
+                        }
                     }
                 }
             }
-        } else if let targetList = targetList {
+        } else if let targetList = command.targetList {
             // Handle list move
             reminderManager.updateReminderList(reminder, newList: targetList) { success, error in
                 DispatchQueue.main.async {
