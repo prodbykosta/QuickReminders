@@ -416,7 +416,7 @@ class NLParser {
         
         for (pattern, defaultInterval, frequency) in patterns {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: text.count)) {
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
                 
                 // Record the detected phrase
                 let matchedText = String(text[Range(match.range, in: text)!])
@@ -449,8 +449,11 @@ class NLParser {
             ("sunday", 1), ("sun", 1)
         ]
         
+        // Use word boundary regex to ensure accurate matching
         for (name, number) in weekdays {
-            if text.contains(name) {
+            let pattern = "\\b\(NSRegularExpression.escapedPattern(for: name))\\b"
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) != nil {
                 detectedPhrases.append(name)
                 return (name, number)
             }
@@ -490,10 +493,10 @@ class NLParser {
         
         for pattern in timePatterns {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: text.count)) {
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
                 
-                // Record the detected phrase
-                let matchedText = String(text[Range(match.range, in: text)!])
+                // Record the detected phrase (trim to avoid capturing surrounding spaces)
+                let matchedText = String(text[Range(match.range, in: text)!]).trimmingCharacters(in: .whitespaces)
                 detectedPhrases.append(matchedText)
                 
                 var hour = 9, minute = 0
@@ -544,38 +547,45 @@ class NLParser {
     }
     
     private func detectRelativeDate(in text: String, detectedPhrases: inout [String]) -> (isToday: Bool?, daysFromNow: Int?) {
-        // Check for "in X days/weeks/months" patterns
-        let inPatterns = [
-            ("in\\s+(\\d+)\\s+days?", 1),     // "in 3 days" -> multiply by 1
-            ("in\\s+(\\d+)\\s+weeks?", 7),    // "in 2 weeks" -> multiply by 7
-            ("in\\s+(\\d+)\\s+months?", 30)   // "in 1 month" -> multiply by 30
-        ]
-        
-        for (pattern, multiplier) in inPatterns {
-            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: text.count)) {
-                
-                let matchedText = String(text[Range(match.range, in: text)!])
-                detectedPhrases.append(matchedText)
-                
-                let numberRange = match.range(at: 1)
-                if numberRange.location != NSNotFound {
-                    let numberStr = String(text[Range(numberRange, in: text)!])
-                    if let number = Int(numberStr) {
-                        return (nil, number * multiplier)
+        // Check for "in X days/weeks/months" patterns using simpler detection
+        if text.contains("in") && (text.contains("day") || text.contains("week") || text.contains("month")) {
+            // Use regex only for number extraction, not for detection
+            let inPatterns = [
+                ("in\\s+(\\d+)\\s+days?", 1),     // "in 3 days" -> multiply by 1
+                ("in\\s+(\\d+)\\s+weeks?", 7),    // "in 2 weeks" -> multiply by 7
+                ("in\\s+(\\d+)\\s+months?", 30)   // "in 1 month" -> multiply by 30
+            ]
+            
+            for (pattern, multiplier) in inPatterns {
+                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+                   let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                    
+                    let matchedText = String(text[Range(match.range, in: text)!])
+                    detectedPhrases.append(matchedText)
+                    
+                    let numberRange = match.range(at: 1)
+                    if numberRange.location != NSNotFound {
+                        let numberStr = String(text[Range(numberRange, in: text)!])
+                        if let number = Int(numberStr) {
+                            return (nil, number * multiplier)
+                        }
                     }
                 }
             }
         }
         
-        // Check for today/tomorrow patterns
-        if text.contains("today") || text.contains("td") {
-            if text.contains("today") { detectedPhrases.append("today") }
-            if text.contains("td") { detectedPhrases.append("td") }
+        // Check for today/tomorrow patterns using simple contains() like weekdays
+        if text.contains("today") {
+            detectedPhrases.append("today")
             return (true, nil)  // isToday = true
-        } else if text.contains("tomorrow") || text.contains("tm") {
-            if text.contains("tomorrow") { detectedPhrases.append("tomorrow") }
-            if text.contains("tm") { detectedPhrases.append("tm") }
+        } else if text.contains("td") {
+            detectedPhrases.append("td")
+            return (true, nil)  // isToday = true
+        } else if text.contains("tomorrow") {
+            detectedPhrases.append("tomorrow")
+            return (false, nil) // isToday = false (tomorrow)
+        } else if text.contains("tm") {
+            detectedPhrases.append("tm")
             return (false, nil) // isToday = false (tomorrow)
         }
         
@@ -590,7 +600,7 @@ class NLParser {
         
         for pattern in datePatterns {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: text.count)) {
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
                 
                 let matchedText = String(text[Range(match.range, in: text)!])
                 detectedPhrases.append(matchedText)
@@ -613,15 +623,21 @@ class NLParser {
         // Remove each detected phrase with surrounding context
         for phrase in detectedPhrases {
             // Remove the phrase with optional prepositions before/after
+            // Use word boundaries for more accurate matching
+            let escapedPhrase = NSRegularExpression.escapedPattern(for: phrase)
             let patterns = [
-                "\\s+in\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",  // " in 3 days"
-                "\\s+on\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",  // " on monday"
-                "\\s+at\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",  // " at 10am"
-                "\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",       // " every week"
-                "^in\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",    // "in 3 days" at start
-                "^on\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",    // "on monday" at start
-                "^at\\s+\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)",    // "at 10am" at start
-                "^\(NSRegularExpression.escapedPattern(for: phrase))(?=\\s|$)"           // "every week" at start
+                "\\s+in\\s+\(escapedPhrase)\\b",                    // " in 3 days"
+                "\\s+on\\s+\(escapedPhrase)\\b",                    // " on monday" 
+                "\\s+at\\s+\(escapedPhrase)\\b",                    // " at 10am"
+                "\\s+\(escapedPhrase)$",                            // " td" at end
+                "\\s+\(escapedPhrase)\\b",                          // " every week", " 9:23"
+                "\\b\(escapedPhrase)\\s+",                          // "9:23 " at start or middle
+                "\\b\(escapedPhrase)$",                             // "td" at end without space
+                "^in\\s+\(escapedPhrase)\\b",                       // "in 3 days" at start
+                "^on\\s+\(escapedPhrase)\\b",                       // "on monday" at start
+                "^at\\s+\(escapedPhrase)\\b",                       // "at 10am" at start  
+                "^\(escapedPhrase)\\b",                              // "every week" at start
+                "^\(escapedPhrase)\\s+",                             // "9:23 " at start with space
             ]
             
             for pattern in patterns {
@@ -629,10 +645,28 @@ class NLParser {
             }
         }
         
-        // Clean up extra spaces, leftover prepositions, and return
+        // Clean up extra spaces, leftover prepositions, and common scheduling words
         cleanedText = cleanedText.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
         cleanedText = cleanedText.replacingOccurrences(of: "\\s+(in|on|at)\\s*$", with: "", options: .regularExpression)
         cleanedText = cleanedText.replacingOccurrences(of: "^(in|on|at)\\s+", with: "", options: .regularExpression)
+        
+        // Remove any remaining scheduling words that might have been missed
+        let remainingSchedulingWords = ["td", "tm", "today", "tomorrow", "every", "day", "week", "month"]
+        for word in remainingSchedulingWords {
+            cleanedText = cleanedText.replacingOccurrences(of: "\\s+\(word)\\s*$", with: "", options: [.regularExpression, .caseInsensitive])
+            cleanedText = cleanedText.replacingOccurrences(of: "^\\s*\(word)\\s+", with: "", options: [.regularExpression, .caseInsensitive])
+        }
+        
+        // Remove any remaining time patterns like "9:23", "10am", etc.
+        let timePatterns = [
+            "\\s+\\d{1,2}:\\d{2}\\s*(am|pm)?\\s*$",  // " 9:23am" at end
+            "^\\s*\\d{1,2}:\\d{2}\\s*(am|pm)?\\s+",  // "9:23am " at start
+            "\\s+\\d{1,2}\\s*(am|pm)\\s*$",         // " 9am" at end
+            "^\\s*\\d{1,2}\\s*(am|pm)\\s+"          // "9am " at start
+        ]
+        for pattern in timePatterns {
+            cleanedText = cleanedText.replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+        }
         
         return cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
@@ -771,7 +805,7 @@ class NLParser {
             return nil
         }
         
-        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: text.count))
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length))
         
         for match in matches {
             guard let firstRange = Range(match.range(at: 1), in: text),

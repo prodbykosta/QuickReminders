@@ -14,14 +14,16 @@ class SyntaxHighlighter {
         guard isEnabled else {
             // Return plain white text if highlighting is disabled
             let attributedString = NSMutableAttributedString(string: text)
-            let fullRange = NSRange(location: 0, length: text.count)
+            let nsText = text as NSString
+            let fullRange = NSRange(location: 0, length: nsText.length)
             attributedString.addAttribute(.foregroundColor, value: NSColor.white, range: fullRange)
             attributedString.addAttribute(.font, value: NSFont.systemFont(ofSize: 16, weight: .medium), range: fullRange)
             return attributedString
         }
         
         let attributedString = NSMutableAttributedString(string: text)
-        let fullRange = NSRange(location: 0, length: text.count)
+        let nsText = text as NSString
+        let fullRange = NSRange(location: 0, length: nsText.length)
         
         // Set default attributes
         attributedString.addAttribute(.foregroundColor, value: NSColor.white, range: fullRange)
@@ -114,7 +116,7 @@ class SyntaxHighlighter {
         for (pattern, color) in patterns {
             do {
                 let regex = try NSRegularExpression(pattern: pattern, options: .caseInsensitive)
-                let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: text.count))
+                let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
                 
                 for match in matches {
                     attributedString.addAttribute(.foregroundColor, value: color, range: match.range)
@@ -153,12 +155,21 @@ class HighlightedTextField: NSTextField {
     }
     
     private func setupTextField() {
-        // Configure basic properties
+        // Configure basic properties with emoji support
         self.font = NSFont.systemFont(ofSize: 16, weight: .medium)
         self.focusRingType = .none
         self.isBordered = false
         self.backgroundColor = NSColor.clear
         self.allowsEditingTextAttributes = true
+        
+        // Enable emoji and Unicode support
+        self.importsGraphics = false
+        self.usesSingleLineMode = true
+        
+        // Ensure proper text encoding for emojis
+        if let cell = self.cell as? NSTextFieldCell {
+            cell.allowsUndo = true
+        }
     }
     
     override func textDidChange(_ notification: Notification) {

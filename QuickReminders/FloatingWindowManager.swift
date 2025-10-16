@@ -660,13 +660,18 @@ struct FloatingReminderView: View {
                         isTransitioning = true
                         
                         handleDuplicateSelection(selectedReminder)
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        
+                        // Coordinate SwiftUI and window animations
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             insideWindowState = .hidden
                         }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        
+                        // Start window resize immediately with the view animation
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             resizeWindowForDuplicateSelection(show: false)
                         }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             isTransitioning = false
                         }
                     },
@@ -674,13 +679,17 @@ struct FloatingReminderView: View {
                         guard !isTransitioning else { return }
                         isTransitioning = true
                         
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                        // Coordinate SwiftUI and window animations
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             insideWindowState = .hidden
                         }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        
+                        // Start window resize immediately with the view animation
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             resizeWindowForDuplicateSelection(show: false)
                         }
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             isTransitioning = false
                         }
                     }
@@ -2365,51 +2374,51 @@ struct DuplicateReminderRow: View {
     @State private var isHovered = false
     
     var body: some View {
-        Button(action: onSelect) {
-            HStack(spacing: 12) {
-                // List color indicator
-                Circle()
-                    .fill(Color(reminder.calendar.cgColor))
-                    .frame(width: 8, height: 8)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(reminder.title ?? "Untitled")
-                            .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.primary)
-                            .lineLimit(1)
-                        
-                        Spacer()
-                        
-                        if let dueDate = reminder.dueDateComponents?.date {
-                            Text(formatDate(dueDate))
-                                .font(.system(size: 12))
-                                .foregroundColor(.secondary)
-                        }
-                    }
+        HStack(spacing: 12) {
+            // List color indicator
+            Circle()
+                .fill(Color(reminder.calendar.cgColor))
+                .frame(width: 8, height: 8)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(reminder.title ?? "Untitled")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
                     
-                    HStack {
-                        Text(reminder.calendar.title)
-                            .font(.system(size: 11))
-                            .foregroundColor(Color(reminder.calendar.cgColor))
-                        
-                        if reminder.hasRecurrenceRules && !(reminder.recurrenceRules?.isEmpty ?? true) {
-                            Text("• Recurring")
-                                .font(.system(size: 11))
-                                .foregroundColor(.secondary)
-                        }
+                    Spacer()
+                    
+                    if let dueDate = reminder.dueDateComponents?.date {
+                        Text(formatDate(dueDate))
+                            .font(.system(size: 12))
+                            .foregroundColor(.secondary)
                     }
                 }
                 
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundColor(.secondary)
+                HStack {
+                    Text(reminder.calendar.title)
+                        .font(.system(size: 11))
+                        .foregroundColor(Color(reminder.calendar.cgColor))
+                    
+                    if reminder.hasRecurrenceRules && !(reminder.recurrenceRules?.isEmpty ?? true) {
+                        Text("• Recurring")
+                            .font(.system(size: 11))
+                            .foregroundColor(.secondary)
+                    }
+                }
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-            .background(Color.clear)
+            
+            Image(systemName: "chevron.right")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.secondary)
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onSelect()
+        }
         .background(
             RoundedRectangle(cornerRadius: 8)
                 .fill(isHovered ? Color.blue.opacity(0.1) : Color.primary.opacity(0.05))
