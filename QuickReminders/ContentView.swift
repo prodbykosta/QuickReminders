@@ -264,7 +264,8 @@ struct ContentView: View {
             PreferencesView(
                 reminderManager: reminderManager,
                 hotKeyManager: hotKeyManager,
-                colorTheme: colorTheme
+                colorTheme: colorTheme,
+                speechManager: SpeechManager()
             )
             .frame(minWidth: 700, minHeight: 500)
         }

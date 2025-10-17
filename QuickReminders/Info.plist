@@ -32,9 +32,11 @@
 	<string>QuickReminders needs access to Reminders to create and manage your reminders through natural language input.</string>
 	<key>NSRemindersFullAccessUsageDescription</key>
 	<string>QuickReminders needs full access to Reminders to create and manage your reminders through natural language input.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>QuickReminders needs microphone access to recognize speech and create reminders using voice commands.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>QuickReminders needs speech recognition access to convert your voice commands into reminders.</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
-	<key>LSUIElement</key>
-	<true/>
 </dict>
 </plist>

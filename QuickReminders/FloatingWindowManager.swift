@@ -2,6 +2,8 @@ import SwiftUI
 import AppKit
 import EventKit
 import Combine
+import Speech
+import AVFoundation
 
 enum InsideWindowState {
     case hidden
@@ -170,6 +172,7 @@ class FloatingWindowManager: ObservableObject {
     private var floatingWindow: NSWindow?
     private var reminderManager: ReminderManager?
     private var colorTheme: ColorThemeManager?
+    private var speechManager: SpeechManager?
     private var windowDelegate: FloatingWindowDelegate?
     private var isCleaningUp = false
     
@@ -297,6 +300,10 @@ class FloatingWindowManager: ObservableObject {
         // Note: ReminderManager's colorTheme is immutable (set in init), so we don't update it here
     }
     
+    func setSpeechManager(_ manager: SpeechManager) {
+        speechManager = manager
+    }
+    
     private func createFloatingWindow() {
         floatingWindow = FloatingWindow(
             contentRect: NSRect(x: 0, y: 0, width: 600, height: 140),
@@ -325,6 +332,7 @@ class FloatingWindowManager: ObservableObject {
         let contentView = NSHostingView(rootView: FloatingReminderView(
             reminderManager: reminderManager ?? ReminderManager(colorTheme: ColorThemeManager()),
             colorTheme: colorTheme ?? ColorThemeManager(),
+            speechManager: speechManager ?? SpeechManager(),
             onClose: { [weak self] in
                 self?.hideFloatingWindow()
             }
@@ -396,6 +404,7 @@ class FloatingWindowManager: ObservableObject {
 struct FloatingReminderView: View {
     @ObservedObject var reminderManager: ReminderManager
     @ObservedObject var colorTheme: ColorThemeManager
+    @ObservedObject var speechManager: SpeechManager
     @State private var reminderText = ""
     @State private var statusMessage = ""
     @State private var isSuccess = false
@@ -405,6 +414,8 @@ struct FloatingReminderView: View {
     @State private var showFlash = false
     @State private var glowAnimation = false
     @State private var glowStops: [Gradient.Stop] = []
+    @State private var buttonScale: CGFloat = 1.0
+    @State private var buttonPressed = false
     @State private var permanentGlow = true // Always show glow with list color
     @State private var showListPicker = false
     @State private var windowAppearAnimation = false // For sexy opening animation
@@ -420,9 +431,10 @@ struct FloatingReminderView: View {
     private var nlParser: NLParser
     let onClose: () -> Void
     
-    init(reminderManager: ReminderManager, colorTheme: ColorThemeManager, onClose: @escaping () -> Void) {
+    init(reminderManager: ReminderManager, colorTheme: ColorThemeManager, speechManager: SpeechManager, onClose: @escaping () -> Void) {
         self.reminderManager = reminderManager
         self.colorTheme = colorTheme
+        self.speechManager = speechManager
         self.nlParser = NLParser(colorTheme: colorTheme)
         self.onClose = onClose
     }
@@ -474,37 +486,89 @@ struct FloatingReminderView: View {
                     .frame(width: 250, height: 200)
                 }
                 
-                FocusableTextField(
-                    text: $reminderText,
-                    placeholder: "Type your reminder command...",
-                    onSubmit: processCommand,
-                    colorHelpersEnabled: colorTheme.colorHelpersEnabled,
-                    shortcutsEnabled: colorTheme.shortcutsEnabled
-                )
-                .font(.system(size: 16, weight: .medium))
-                
-                if isProcessing {
-                    ProgressView()
-                        .scaleEffect(0.7)
-                        .progressViewStyle(CircularProgressViewStyle())
-                } else if !reminderText.isEmpty {
-                    Button(action: processCommand) {
-                        Image(systemName: "arrow.right.circle.fill")
-                            .foregroundStyle(
-                                LinearGradient(
-                                    colors: [
-                                        colorTheme.primaryColor.opacity(0.9), 
-                                        colorTheme.selectedListColor
-                                    ],
-                                    startPoint: .leading,
-                                    endPoint: .trailing
+                HStack(spacing: 8) {
+                    FocusableTextField(
+                        text: $reminderText,
+                        placeholder: speechManager.isListening ? "🎤 Listening..." : "Type your reminder command...",
+                        onSubmit: processCommand,
+                        colorHelpersEnabled: colorTheme.colorHelpersEnabled,
+                        shortcutsEnabled: colorTheme.shortcutsEnabled
+                    )
+                    .font(.system(size: 16, weight: .medium))
+                    .disabled(speechManager.isListening)
+                    
+                    // Microphone button - only show if both speech recognition and microphone permissions are granted
+                    if speechPermissionsGranted() {
+                        Button(action: toggleSpeechRecognition) {
+                            Image(systemName: speechManager.isListening ? "mic.fill" : "mic")
+                                .font(.system(size: 16, weight: .medium))
+                                .foregroundColor(speechManager.isListening ? .red : (speechManager.errorMessage != nil ? .orange : .primary))
+                                .background(
+                                    Circle()
+                                        .fill(speechManager.isListening ? Color.red.opacity(0.1) : Color.clear)
+                                        .frame(width: 28, height: 28)
                                 )
-                            )
-                            .font(.system(size: 20))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!speechManager.isAvailable)
+                        .opacity(speechManager.isAvailable ? 1.0 : 0.5)
+                        .help(speechManager.errorMessage ?? 
+                              (speechManager.isAvailable ? 
+                               (speechManager.isListening ? "Stop listening" : "Start voice recognition") : 
+                               "Speech recognition not available"))
                     }
-                    .buttonStyle(.plain)
-                    .disabled(!reminderManager.hasAccess)
                 }
+                
+                Group {
+                    if isProcessing {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                            .progressViewStyle(CircularProgressViewStyle())
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.1).combined(with: .opacity),
+                                removal: .scale(scale: 0.1).combined(with: .opacity)
+                            ))
+                    } else {
+                        Button(action: {
+                            guard !reminderText.isEmpty else { return }
+                            
+                            buttonPressed = true
+                            
+                            // Scale feedback animation
+                            withAnimation(.easeOut(duration: 0.1)) {
+                                buttonScale = 0.9
+                            }
+                            
+                            // Reset scale and process command
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                                withAnimation(.easeOut(duration: 0.1)) {
+                                    buttonScale = 1.0
+                                }
+                                processCommand()
+                                buttonPressed = false
+                            }
+                        }) {
+                            Image(systemName: "arrow.right.circle.fill")
+                                .foregroundStyle(
+                                    LinearGradient(
+                                        colors: reminderText.isEmpty ? 
+                                        [colorTheme.primaryColor.opacity(0.5), colorTheme.selectedListColor.opacity(0.5)] :
+                                        [colorTheme.primaryColor.opacity(0.9), colorTheme.selectedListColor],
+                                        startPoint: .leading,
+                                        endPoint: .trailing
+                                    )
+                                )
+                                .font(.system(size: 20))
+                                .scaleEffect(buttonScale)
+                                .opacity(1.0)
+                                .brightness(buttonPressed ? -0.1 : 0)
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(!reminderManager.hasAccess || reminderText.isEmpty)
+                    }
+                }
+                .animation(.spring(response: 0.3, dampingFraction: 0.7, blendDuration: 0), value: isProcessing)
+                .animation(.spring(response: 0.3, dampingFraction: 0.7, blendDuration: 0), value: reminderText.isEmpty)
             }
             .frame(minHeight: 32) // Fixed height for input area to prevent jumping
             .padding(16)
@@ -840,6 +904,8 @@ struct FloatingReminderView: View {
         .opacity(windowAppearAnimation ? 1.0 : 0.0)
         .blur(radius: windowAppearAnimation ? 0 : 10)
         .onAppear {
+            print("🎤 DEBUG - FloatingReminderView appeared. Requesting permissions.")
+            speechManager.requestPermissions()
             // Reminder view appeared
             // Check if opening animation is enabled
             if colorTheme.openingAnimationEnabled {
@@ -850,6 +916,28 @@ struct FloatingReminderView: View {
             } else {
                 // Instant appearance
                 windowAppearAnimation = true
+            }
+            
+            // Set up speech recognition callbacks
+            speechManager.onTranscriptionUpdate = { transcription in
+                DispatchQueue.main.async {
+                    self.reminderText = transcription
+                }
+            }
+            
+            speechManager.onTranscriptionComplete = { transcription in
+                DispatchQueue.main.async {
+                    self.reminderText = transcription
+                    self.processCommand()
+                }
+            }
+            
+            speechManager.onAutoSend = { transcription in
+                DispatchQueue.main.async {
+                    self.reminderText = transcription
+                    self.processCommand()
+                    self.reminderText = ""
+                }
             }
         }
         .onExitCommand {
@@ -877,6 +965,11 @@ struct FloatingReminderView: View {
             
             // Reset animation state for next time
             windowAppearAnimation = false
+            
+            // Stop speech recognition if active
+            if speechManager.isListening {
+                speechManager.stopListening()
+            }
         }
     }
     
@@ -989,6 +1082,42 @@ struct FloatingReminderView: View {
         
         // Execute immediately if enough time has passed
         executeCommand(commandText, lowercaseText)
+    }
+    
+    // MARK: - Speech Recognition Functions
+    
+    private func toggleSpeechRecognition() {
+        if speechManager.isListening {
+            speechManager.stopListening()
+        } else {
+            speechManager.startListening()
+        }
+    }
+    
+    private func showPermissionAlert() {
+        let alert = NSAlert()
+        alert.messageText = "Microphone Permission Required"
+        alert.informativeText = "QuickReminders needs microphone access to use voice commands.\n\nSteps:\n1. Click 'Open System Settings'\n2. Go to Privacy & Security → Microphone\n3. Find QuickReminders and enable it\n4. Return to the app and try again"
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Cancel")
+        alert.alertStyle = .informational
+        
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            speechManager.openMicrophoneSettings()
+        }
+    }
+    
+    private func startSpeechRecognition() {
+        // Clear any existing text and start listening
+        reminderText = ""
+        speechManager.startListening()
+    }
+    
+    private func speechPermissionsGranted() -> Bool {
+        let speechStatus = SFSpeechRecognizer.authorizationStatus()
+        let microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+        return speechStatus == .authorized && microphoneStatus == .authorized
     }
     
     private func executeCommand(_ commandText: String, _ lowercaseText: String) {

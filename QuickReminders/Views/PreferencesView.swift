@@ -30,6 +30,7 @@ struct PreferencesView: View {
     @ObservedObject var reminderManager: ReminderManager
     @ObservedObject var hotKeyManager: HotKeyManager
     @ObservedObject var colorTheme: ColorThemeManager
+    @ObservedObject var speechManager: SpeechManager
     @State private var selectedPage: SettingsPage? = .general
     
     var body: some View {
@@ -56,7 +57,7 @@ struct PreferencesView: View {
     private func destinationView(for page: SettingsPage) -> some View {
         switch page {
         case .general:
-            GeneralSettingsView(reminderManager: reminderManager, colorTheme: colorTheme)
+            GeneralSettingsView(reminderManager: reminderManager, colorTheme: colorTheme, speechManager: speechManager)
         case .hotkey:
             HotkeySettingsView(hotKeyManager: hotKeyManager)
         case .colors:

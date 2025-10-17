@@ -7,10 +7,15 @@
 
 import SwiftUI
 import EventKit
+import Speech
+import AVFoundation
 
 struct GeneralSettingsView: View {
     @ObservedObject var reminderManager: ReminderManager
     @ObservedObject var colorTheme: ColorThemeManager
+    @ObservedObject var speechManager: SpeechManager
+    @State private var sendTriggerWords: [String] = []
+    @State private var newTriggerWord = ""
     
     var body: some View {
         PreferencesSection(title: "General") {
@@ -120,6 +125,171 @@ struct GeneralSettingsView: View {
                     Text("Required for global hotkey to work from anywhere")
                         .font(.caption)
                         .foregroundColor(.secondary)
+                }
+            }
+            
+            Divider()
+            
+            // Speech Recognition Permissions
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Speech Recognition & Voice Commands")
+                    .font(.headline)
+                
+                let speechStatus = SFSpeechRecognizer.authorizationStatus()
+                let microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+                let speechGranted = speechStatus == .authorized
+                let microphoneGranted = microphoneStatus == .authorized
+                let bothGranted = speechGranted && microphoneGranted
+                
+                if bothGranted {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("✅ Voice commands ready")
+                            .foregroundColor(.green)
+                    }
+                    Text("You can use the microphone button for voice input")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                } else {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                        Text("⚠️ Voice commands unavailable")
+                            .foregroundColor(.orange)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        if !speechGranted {
+                            HStack {
+                                Image(systemName: speechStatus == .denied ? "xmark.circle.fill" : "questionmark.circle.fill")
+                                    .foregroundColor(speechStatus == .denied ? .red : .orange)
+                                Text("Speech Recognition: \(speechStatusText(speechStatus))")
+                                    .font(.caption)
+                                Spacer()
+                                Button(speechStatus == .notDetermined ? "Request Permission" : "Open Settings") {
+                                    requestSpeechRecognitionPermission()
+                                }
+                                .buttonStyle(.borderless)
+                                .foregroundColor(.blue)
+                            }
+                        }
+                        
+                        // Show microphone status but explain it's handled by the microphone button
+                        HStack {
+                            Image(systemName: microphoneGranted ? "checkmark.circle.fill" : "info.circle.fill")
+                                .foregroundColor(microphoneGranted ? .green : .blue)
+                            Text("Microphone: \(microphoneGranted ? "Granted" : "Will be requested when you use the microphone button")")
+                                .font(.caption)
+                            Spacer()
+                            if !microphoneGranted && microphoneStatus == .denied {
+                                Button("Open Settings") {
+                                    speechManager.openMicrophoneSettings()
+                                }
+                                .buttonStyle(.borderless)
+                                .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                    .padding(.leading, 24)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Both permissions are required for voice commands to work")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        if !speechGranted || !microphoneGranted {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("💡 If the permission dialog doesn't appear:")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                    .fontWeight(.medium)
+                                
+                                Text("• Build and run the app (not just build in Xcode)")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                                
+                                Text("• Manually add QuickReminders in System Settings > Privacy & Security > Microphone")
+                                    .font(.caption)
+                                    .foregroundColor(.blue)
+                            }
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+            }
+            
+            Divider()
+            
+            // Voice Command Settings
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "mic.circle")
+                        .foregroundColor(.purple)
+                        .font(.title2)
+                    Text("Voice Command Settings")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Send Trigger Words")
+                        .font(.headline)
+                    
+                    Text("Say any of these words to automatically send commands:")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    // Current trigger words list
+                    LazyVStack(alignment: .leading, spacing: 6) {
+                        ForEach(sendTriggerWords, id: \.self) { word in
+                            HStack {
+                                Text("• \(word)")
+                                    .font(.body)
+                                    .foregroundColor(.primary)
+                                
+                                Spacer()
+                                
+                                Button(action: {
+                                    removeTriggerWord(word)
+                                }) {
+                                    Image(systemName: "minus.circle.fill")
+                                        .foregroundColor(.red)
+                                        .font(.system(size: 16))
+                                }
+                                .buttonStyle(.plain)
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.gray.opacity(0.1))
+                            .cornerRadius(6)
+                        }
+                    }
+                    
+                    // Add new trigger word
+                    HStack {
+                        TextField("Add new trigger word...", text: $newTriggerWord)
+                            .textFieldStyle(.roundedBorder)
+                            .onSubmit {
+                                addTriggerWord()
+                            }
+                        
+                        Button(action: addTriggerWord) {
+                            Image(systemName: "plus.circle.fill")
+                                .foregroundColor(.green)
+                                .font(.system(size: 20))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(newTriggerWord.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                    
+                    Text("💡 Example: \"Take out trash tomorrow 9AM send\" (if 'send' is in your list)")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                        .italic()
+                }
+                .onAppear {
+                    loadTriggerWords()
                 }
             }
             
@@ -989,6 +1159,123 @@ struct GeneralSettingsView: View {
         
         // User needs to grant accessibility permissions manually
     }
+    
+    // MARK: - Speech Recognition Helpers
+    
+    private func speechStatusText(_ status: SFSpeechRecognizerAuthorizationStatus) -> String {
+        switch status {
+        case .authorized:
+            return "Granted"
+        case .denied:
+            return "Denied"
+        case .restricted:
+            return "Restricted"
+        case .notDetermined:
+            return "Not Determined"
+        @unknown default:
+            return "Unknown"
+        }
+    }
+    
+    private func microphoneStatusText(_ status: AVAuthorizationStatus) -> String {
+        switch status {
+        case .authorized:
+            return "Granted"
+        case .denied:
+            return "Denied"
+        case .restricted:
+            return "Restricted"
+        case .notDetermined:
+            return "Not Determined"
+        @unknown default:
+            return "Unknown"
+        }
+    }
+    
+    private func requestSpeechRecognitionPermission() {
+        let currentStatus = SFSpeechRecognizer.authorizationStatus()
+        
+        if currentStatus == .notDetermined {
+            // First time - request permission directly
+            SFSpeechRecognizer.requestAuthorization { status in
+                DispatchQueue.main.async {
+                    // Refresh the view to show updated status
+                    // The view will automatically update due to the status change
+                }
+            }
+        } else {
+            // Already determined (denied/restricted) - open settings
+            openSpeechRecognitionSettings()
+        }
+    }
+    
+    private func openSpeechRecognitionSettings() {
+        let alert = NSAlert()
+        alert.messageText = "Speech Recognition Permission Required"
+        alert.informativeText = "Please enable Speech Recognition for QuickReminders in System Settings > Privacy & Security > Speech Recognition."
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Cancel")
+        alert.alertStyle = .informational
+        
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+    }
+    
+    private func openMicrophoneSettings() {
+        let alert = NSAlert()
+        alert.messageText = "Microphone Permission Required"
+        alert.informativeText = "Please enable Microphone access for QuickReminders in System Settings > Privacy & Security > Microphone."
+        alert.addButton(withTitle: "Open System Settings")
+        alert.addButton(withTitle: "Cancel")
+        alert.alertStyle = .informational
+        
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+                NSWorkspace.shared.open(url)
+            }
+        }
+    }
+    
+    // MARK: - Trigger Words Management
+    private func loadTriggerWords() {
+        if let data = UserDefaults.standard.data(forKey: "voiceSendTriggers"),
+           let words = try? JSONDecoder().decode([String].self, from: data) {
+            sendTriggerWords = words
+        } else {
+            // Default trigger words
+            sendTriggerWords = ["send", "sent"]
+            saveTriggerWords()
+        }
+    }
+    
+    private func saveTriggerWords() {
+        if let data = try? JSONEncoder().encode(sendTriggerWords) {
+            UserDefaults.standard.set(data, forKey: "voiceSendTriggers")
+        }
+    }
+    
+    private func addTriggerWord() {
+        let word = newTriggerWord.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        if !word.isEmpty && !sendTriggerWords.contains(word) {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+                sendTriggerWords.append(word)
+            }
+            saveTriggerWords()
+            newTriggerWord = ""
+        }
+    }
+    
+    private func removeTriggerWord(_ word: String) {
+        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
+            sendTriggerWords.removeAll { $0 == word }
+        }
+        saveTriggerWords()
+    }
 }
 
 struct ValidatedTimeField: View {
@@ -1156,4 +1443,5 @@ struct ValidatedTimeField: View {
     private func updateTime() {
         time = String(format: "%d:%02d %@", selectedHour, selectedMinute, isAM ? "AM" : "PM")
     }
+    
 }

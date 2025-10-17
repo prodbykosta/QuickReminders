@@ -31,7 +31,8 @@ struct QuickRemindersApp: App {
             PreferencesView(
                 reminderManager: appDelegate.reminderManager,
                 hotKeyManager: appDelegate.hotKeyManager,
-                colorTheme: appDelegate.colorTheme
+                colorTheme: appDelegate.colorTheme,
+                speechManager: appDelegate.speechManager
             )
             .frame(minWidth: 700, minHeight: 500)
         }
@@ -58,6 +59,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     @Published var hotKeyManager: HotKeyManager
     @Published var floatingWindowManager: FloatingWindowManager
     @Published var colorTheme: ColorThemeManager
+    @Published var speechManager: SpeechManager
 
     @Published var showInMenuBar = true
     private var cancellables = Set<AnyCancellable>()
@@ -76,6 +78,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         self.reminderManager = ReminderManager(colorTheme: colorTheme)
         self.hotKeyManager = HotKeyManager()
         self.floatingWindowManager = FloatingWindowManager()
+        self.speechManager = SpeechManager()
         
         super.init()
         // AppDelegate initializing
@@ -284,7 +287,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         let preferencesView = PreferencesView(
             reminderManager: reminderManager,
             hotKeyManager: hotKeyManager,
-            colorTheme: colorTheme
+            colorTheme: colorTheme,
+            speechManager: speechManager
         )
         let hostingView = NSHostingView(rootView: preferencesView)
         preferencesWindow?.contentView = hostingView
@@ -449,6 +453,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         // Setup the floating window manager with shared reminder manager and color theme
         floatingWindowManager.setReminderManager(reminderManager)
         floatingWindowManager.setColorTheme(colorTheme)
+        floatingWindowManager.setSpeechManager(speechManager)
         
         // Setup Spotlight-like global hotkey behavior
         hotKeyManager.onHotKeyPressed = { [weak self] in
