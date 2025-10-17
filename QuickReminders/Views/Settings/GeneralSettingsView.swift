@@ -175,19 +175,29 @@ struct GeneralSettingsView: View {
                             }
                         }
                         
-                        // Show microphone status but explain it's handled by the microphone button
+                        // Microphone status with action buttons
                         HStack {
-                            Image(systemName: microphoneGranted ? "checkmark.circle.fill" : "info.circle.fill")
-                                .foregroundColor(microphoneGranted ? .green : .blue)
-                            Text("Microphone: \(microphoneGranted ? "Granted" : "Will be requested when you use the microphone button")")
+                            Image(systemName: microphoneGranted ? "checkmark.circle.fill" : (microphoneStatus == .denied ? "xmark.circle.fill" : "questionmark.circle.fill"))
+                                .foregroundColor(microphoneGranted ? .green : (microphoneStatus == .denied ? .red : .orange))
+                            Text("Microphone: \(microphoneStatusText(microphoneStatus))")
                                 .font(.caption)
                             Spacer()
-                            if !microphoneGranted && microphoneStatus == .denied {
-                                Button("Open Settings") {
-                                    speechManager.openMicrophoneSettings()
+                            if !microphoneGranted {
+                                HStack(spacing: 8) {
+                                    if microphoneStatus == .notDetermined {
+                                        Button("Request Permission") {
+                                            requestMicrophonePermission()
+                                        }
+                                        .buttonStyle(.borderless)
+                                        .foregroundColor(.blue)
+                                    }
+                                    
+                                    Button("Open Settings") {
+                                        speechManager.openMicrophoneSettings()
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .foregroundColor(.blue)
                                 }
-                                .buttonStyle(.borderless)
-                                .foregroundColor(.blue)
                             }
                         }
                     }
@@ -1237,6 +1247,18 @@ struct GeneralSettingsView: View {
         if response == .alertFirstButtonReturn {
             if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
                 NSWorkspace.shared.open(url)
+            }
+        }
+    }
+    
+    private func requestMicrophonePermission() {
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            DispatchQueue.main.async {
+                if granted {
+                    print("Microphone permission granted")
+                } else {
+                    print("Microphone permission denied")
+                }
             }
         }
     }

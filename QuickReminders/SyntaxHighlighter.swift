@@ -12,11 +12,11 @@ class SyntaxHighlighter {
     
     static func highlightText(_ text: String, isEnabled: Bool = true, shortcutsEnabled: Bool = true) -> NSAttributedString {
         guard isEnabled else {
-            // Return plain white text if highlighting is disabled
+            // Return plain text with adaptive color if highlighting is disabled
             let attributedString = NSMutableAttributedString(string: text)
             let nsText = text as NSString
             let fullRange = NSRange(location: 0, length: nsText.length)
-            attributedString.addAttribute(.foregroundColor, value: NSColor.white, range: fullRange)
+            attributedString.addAttribute(.foregroundColor, value: NSColor.labelColor, range: fullRange)
             attributedString.addAttribute(.font, value: NSFont.systemFont(ofSize: 16, weight: .medium), range: fullRange)
             return attributedString
         }
@@ -25,8 +25,8 @@ class SyntaxHighlighter {
         let nsText = text as NSString
         let fullRange = NSRange(location: 0, length: nsText.length)
         
-        // Set default attributes
-        attributedString.addAttribute(.foregroundColor, value: NSColor.white, range: fullRange)
+        // Set default attributes with adaptive color
+        attributedString.addAttribute(.foregroundColor, value: NSColor.labelColor, range: fullRange)
         attributedString.addAttribute(.font, value: NSFont.systemFont(ofSize: 16, weight: .medium), range: fullRange)
         
         // Define color patterns - ORDER MATTERS! More specific patterns should come first
