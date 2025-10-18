@@ -186,6 +186,8 @@ struct WelcomeScreenView: View {
                 Text("If you do not need voice commands now, you can click Get Started. You can change it later in settings.")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
+                    .multilineTextAlignment(.leading)
+                    .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 4)
             }
             
