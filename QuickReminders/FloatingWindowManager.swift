@@ -1422,7 +1422,6 @@ struct FloatingReminderView: View {
         
         // Guard against rapid state changes
         guard !isTransitioning else { 
-            resetProcessing()
             return 
         }
         isTransitioning = true
@@ -1696,7 +1695,6 @@ struct FloatingReminderView: View {
         
         // Guard against rapid state changes
         guard !isTransitioning else { 
-            resetProcessing()
             return 
         }
         isTransitioning = true
