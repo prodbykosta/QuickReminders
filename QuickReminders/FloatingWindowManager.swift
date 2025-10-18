@@ -427,6 +427,7 @@ struct FloatingReminderView: View {
     @State private var baseWindowHeight: CGFloat = 140 // Base height for input only
     @State private var lastCommandTime: Date = Date() // Track last command time to prevent rapid commands
     @State private var isTransitioning = false // Prevent multiple simultaneous state transitions
+    @State private var speechPermissionsAvailable = false // Cache permissions to avoid repeated checks
     
     private var nlParser: NLParser
     let onClose: () -> Void
@@ -489,16 +490,15 @@ struct FloatingReminderView: View {
                 HStack(spacing: 8) {
                     FocusableTextField(
                         text: $reminderText,
-                        placeholder: speechManager.isListening ? "🎤 Listening..." : "Type your reminder command...",
+                        placeholder: "Type your reminder command...",
                         onSubmit: processCommand,
                         colorHelpersEnabled: colorTheme.colorHelpersEnabled,
                         shortcutsEnabled: colorTheme.shortcutsEnabled
                     )
                     .font(.system(size: 16, weight: .medium))
-                    .disabled(speechManager.isListening)
                     
                     // Microphone button - only show if both speech recognition and microphone permissions are granted
-                    if speechPermissionsGranted() {
+                    if speechPermissionsAvailable {
                         Button(action: toggleSpeechRecognition) {
                             Image(systemName: speechManager.isListening ? "mic.fill" : "mic")
                                 .font(.system(size: 16, weight: .medium))
@@ -904,9 +904,9 @@ struct FloatingReminderView: View {
         .opacity(windowAppearAnimation ? 1.0 : 0.0)
         .blur(radius: windowAppearAnimation ? 0 : 10)
         .onAppear {
-            print("🎤 DEBUG - FloatingReminderView appeared. Requesting permissions.")
-            speechManager.requestPermissions()
             // Reminder view appeared
+            // Check speech permissions once
+            speechPermissionsAvailable = speechPermissionsGranted()
             // Check if opening animation is enabled
             if colorTheme.openingAnimationEnabled {
                 // Sexy liquid opening animation with spring bounce
