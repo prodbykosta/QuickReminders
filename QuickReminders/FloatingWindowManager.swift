@@ -904,10 +904,7 @@ struct FloatingReminderView: View {
         .opacity(windowAppearAnimation ? 1.0 : 0.0)
         .blur(radius: windowAppearAnimation ? 0 : 10)
         .onAppear {
-            // Only request permissions if not already authorized to avoid slowdown
-            if SFSpeechRecognizer.authorizationStatus() != .authorized {
-                speechManager.requestPermissions()
-            }
+            speechManager.requestPermissions()
             // Reminder view appeared
             // Check if opening animation is enabled
             if colorTheme.openingAnimationEnabled {

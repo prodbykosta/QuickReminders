@@ -840,9 +840,15 @@ class NLParser {
             }
         }
         
-        // Handle weekdays - remove if there are other date specifications
+        // Handle weekdays - remove if they appear with scheduling prepositions or other date specifications
         if !schedulingPhrases.weekdays.isEmpty {
-            if !schedulingPhrases.monthReferences.isEmpty || !schedulingPhrases.numericDates.isEmpty || !schedulingPhrases.relativeDates.isEmpty || !schedulingPhrases.times.isEmpty {
+            // Check if weekday appears with scheduling prepositions like "on friday"
+            let hasSchedulingPreposition = schedulingPhrases.weekdays.contains { phrase in
+                let phraseInContext = findPhraseInContext(phrase, in: lowercaseText)
+                return phraseInContext.contains("on ") || phraseInContext.contains("this ") || phraseInContext.contains("next ")
+            }
+            
+            if hasSchedulingPreposition || !schedulingPhrases.monthReferences.isEmpty || !schedulingPhrases.numericDates.isEmpty || !schedulingPhrases.relativeDates.isEmpty || !schedulingPhrases.times.isEmpty {
                 phrasesToRemove.append(contentsOf: schedulingPhrases.weekdays)
             }
         }
@@ -874,6 +880,21 @@ class NLParser {
             }
         }
         return monthPhrases.first
+    }
+    
+    private func findPhraseInContext(_ phrase: String, in text: String) -> String {
+        let lowercasePhrase = phrase.lowercased()
+        let words = text.split(separator: " ")
+        
+        for (index, word) in words.enumerated() {
+            if lowercasePhrase.contains(word.lowercased()) {
+                // Return surrounding context (word before + word + word after)
+                let start = max(0, index - 1)
+                let end = min(words.count - 1, index + 1)
+                return words[start...end].joined(separator: " ")
+            }
+        }
+        return lowercasePhrase
     }
     
     private func removePhrase(_ phrase: String, from text: String) -> String {
