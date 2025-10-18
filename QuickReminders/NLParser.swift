@@ -840,16 +840,25 @@ class NLParser {
             }
         }
         
-        // Handle weekdays - remove if they appear with scheduling prepositions or other date specifications
+        // Handle weekdays - remove if they appear in scheduling context
         if !schedulingPhrases.weekdays.isEmpty {
-            // Check if weekday appears with scheduling prepositions like "on friday"
-            let hasSchedulingPreposition = schedulingPhrases.weekdays.contains { phrase in
+            for phrase in schedulingPhrases.weekdays {
                 let phraseInContext = findPhraseInContext(phrase, in: lowercaseText)
-                return phraseInContext.contains("on ") || phraseInContext.contains("this ") || phraseInContext.contains("next ")
-            }
-            
-            if hasSchedulingPreposition || !schedulingPhrases.monthReferences.isEmpty || !schedulingPhrases.numericDates.isEmpty || !schedulingPhrases.relativeDates.isEmpty || !schedulingPhrases.times.isEmpty {
-                phrasesToRemove.append(contentsOf: schedulingPhrases.weekdays)
+                let isSchedulingContext = phraseInContext.contains("on ") || 
+                                        phraseInContext.contains("this ") || 
+                                        phraseInContext.contains("next ") ||
+                                        isWeekdayAtEndForScheduling(phrase, in: lowercaseText) ||
+                                        (!schedulingPhrases.monthReferences.isEmpty || 
+                                         !schedulingPhrases.numericDates.isEmpty || 
+                                         !schedulingPhrases.relativeDates.isEmpty || 
+                                         !schedulingPhrases.times.isEmpty)
+                
+                // Don't remove if weekday is at the very beginning and part of description
+                let isDescriptiveAtStart = isWeekdayDescriptiveAtStart(phrase, in: lowercaseText)
+                
+                if isSchedulingContext && !isDescriptiveAtStart {
+                    phrasesToRemove.append(phrase)
+                }
             }
         }
         
@@ -895,6 +904,51 @@ class NLParser {
             }
         }
         return lowercasePhrase
+    }
+    
+    private func isWeekdayAtEndForScheduling(_ phrase: String, in text: String) -> Bool {
+        let lowercasePhrase = phrase.lowercased()
+        let words = text.split(separator: " ")
+        
+        // Find where the weekday appears
+        for (index, word) in words.enumerated() {
+            if lowercasePhrase.contains(word.lowercased()) {
+                // Check if weekday is at the end or followed by scheduling info (time/dates)
+                let remainingWords = words.dropFirst(index + 1)
+                let remainingText = remainingWords.joined(separator: " ").lowercased()
+                
+                // If followed by numbers, times, or other date info, it's scheduling
+                return remainingText.isEmpty || 
+                       remainingText.range(of: "\\d", options: .regularExpression) != nil ||
+                       remainingText.contains("am") || remainingText.contains("pm") ||
+                       remainingText.contains("every") || remainingText.contains("daily") ||
+                       remainingText.contains("weekly") || remainingText.contains("monthly")
+            }
+        }
+        return false
+    }
+    
+    private func isWeekdayDescriptiveAtStart(_ phrase: String, in text: String) -> Bool {
+        let lowercasePhrase = phrase.lowercased()
+        let words = text.split(separator: " ")
+        
+        // Check if weekday is among the first few words and followed by descriptive content
+        for (index, word) in words.enumerated() {
+            if lowercasePhrase.contains(word.lowercased()) {
+                // Only consider it descriptive if it's in the first 3 words
+                if index <= 2 {
+                    // Check if followed by descriptive words (not scheduling)
+                    let followingWords = words.dropFirst(index + 1).prefix(3)
+                    let followingText = followingWords.joined(separator: " ").lowercased()
+                    
+                    // If followed by descriptive words like "meeting", "call", "appointment", etc.
+                    let descriptiveWords = ["meeting", "call", "appointment", "lunch", "dinner", "work", "with"]
+                    return descriptiveWords.contains { followingText.contains($0) }
+                }
+                return false
+            }
+        }
+        return false
     }
     
     private func removePhrase(_ phrase: String, from text: String) -> String {
