@@ -489,12 +489,13 @@ struct FloatingReminderView: View {
                 HStack(spacing: 8) {
                     FocusableTextField(
                         text: $reminderText,
-                        placeholder: "Type your reminder command...",
+                        placeholder: speechManager.isListening ? "Listening..." : "Type your reminder command...",
                         onSubmit: processCommand,
                         colorHelpersEnabled: colorTheme.colorHelpersEnabled,
                         shortcutsEnabled: colorTheme.shortcutsEnabled
                     )
                     .font(.system(size: 16, weight: .medium))
+                    .disabled(speechManager.isListening)
                     
                     // Microphone button - only show if both speech recognition and microphone permissions are granted
                     if speechPermissionsGranted() {
@@ -903,7 +904,10 @@ struct FloatingReminderView: View {
         .opacity(windowAppearAnimation ? 1.0 : 0.0)
         .blur(radius: windowAppearAnimation ? 0 : 10)
         .onAppear {
-            speechManager.requestPermissions()
+            // Only request permissions if not already authorized to avoid slowdown
+            if SFSpeechRecognizer.authorizationStatus() != .authorized {
+                speechManager.requestPermissions()
+            }
             // Reminder view appeared
             // Check if opening animation is enabled
             if colorTheme.openingAnimationEnabled {
