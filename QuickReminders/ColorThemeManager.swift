@@ -85,6 +85,7 @@ class ColorThemeManager: ObservableObject {
     @Published var searchOnlyCurrentList: Bool = true // Search only in currently selected list for mv/rm commands
     @Published var shortcutsEnabled: Bool = true // Enable/disable shortcut commands (mv, rm, ls, etc.)
     @Published var timePeriodsEnabled: Bool = true // Enable/disable time period detection (morning, afternoon, etc.)
+    @Published var voiceActivationEnabled: Bool = false // Enable/disable voice activation hotkey
     @Published var dateFormat: DateFormat = .mmdd // Date format preference (MM/DD vs DD/MM)
     
     // Time presets for natural language periods
@@ -190,6 +191,13 @@ class ColorThemeManager: ObservableObject {
                 self.timePeriodsEnabled = true
             }
             
+            // Load voice activation enabled setting (default to false if not set)
+            if userDefaults.object(forKey: "VoiceActivationEnabled") != nil {
+                self.voiceActivationEnabled = userDefaults.bool(forKey: "VoiceActivationEnabled")
+            } else {
+                self.voiceActivationEnabled = false
+            }
+            
             // Load date format setting (default to MM/DD if not set)
             if let savedDateFormat = userDefaults.string(forKey: "DateFormat"),
                let dateFormat = DateFormat(rawValue: savedDateFormat) {
@@ -287,6 +295,9 @@ class ColorThemeManager: ObservableObject {
             // Save time periods enabled setting
             userDefaults.set(timePeriodsEnabled, forKey: "TimePeriodsEnabled")
             
+            // Save voice activation enabled setting
+            userDefaults.set(voiceActivationEnabled, forKey: "VoiceActivationEnabled")
+            
             // Save date format setting
             userDefaults.set(dateFormat.rawValue, forKey: "DateFormat")
             
@@ -326,6 +337,7 @@ class ColorThemeManager: ObservableObject {
         openingAnimationEnabled = true
         shortcutsEnabled = true
         timePeriodsEnabled = true
+        voiceActivationEnabled = false
         saveColors()
     }
     

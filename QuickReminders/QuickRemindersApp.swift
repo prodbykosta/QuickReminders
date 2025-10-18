@@ -9,6 +9,8 @@ import SwiftUI
 import AppKit
 import Combine
 import EventKit
+import Speech
+import AVFoundation
 
 extension Notification.Name {
     static let shouldDeactivateApp = Notification.Name("shouldDeactivateApp")
@@ -380,15 +382,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         floatingWindowManager.setColorTheme(colorTheme)
         floatingWindowManager.setSpeechManager(speechManager)
         
-        // Setup Spotlight-like global hotkey behavior
+        // Setup Spotlight-like global hotkey behavior with voice activation support
         hotKeyManager.onHotKeyPressed = { [weak self] in
             DispatchQueue.main.async {
-                if self?.isActive == true && self?.floatingWindowManager.isWindowVisible == true {
-                    // If already active, deactivate
-                    self?.deactivate()
+                guard let self = self else { return }
+                
+                if self.isActive == true && self.floatingWindowManager.isWindowVisible == true {
+                    // If already active, check if voice activation is enabled
+                    if self.colorTheme.voiceActivationEnabled {
+                        // Check if we have speech permissions
+                        let speechStatus = SFSpeechRecognizer.authorizationStatus()
+                        let microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+                        if speechStatus == .authorized && microphoneStatus == .authorized {
+                            // Start voice recognition instead of deactivating
+                            self.floatingWindowManager.toggleVoiceRecognition()
+                            return
+                        }
+                    }
+                    // If voice activation not enabled or no permissions, deactivate as normal
+                    self.deactivate()
                 } else {
-                    // If not active, activate
-                    self?.activate()
+                    // If not active, activate normally
+                    self.activate()
                 }
             }
         }

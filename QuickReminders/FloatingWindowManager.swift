@@ -1097,6 +1097,11 @@ struct FloatingReminderView: View {
         }
     }
     
+    // Public method for voice activation via hotkey
+    func toggleVoiceRecognition() {
+        toggleSpeechRecognition()
+    }
+    
     private func showPermissionAlert() {
         let alert = NSAlert()
         alert.messageText = "Microphone Permission Required"

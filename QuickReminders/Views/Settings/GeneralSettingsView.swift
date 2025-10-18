@@ -130,6 +130,76 @@ struct GeneralSettingsView: View {
             
             Divider()
             
+            // Voice Activation Hotkey Setting
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Voice Activation Hotkey")
+                    .font(.headline)
+                
+                let speechStatus = SFSpeechRecognizer.authorizationStatus()
+                let microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+                let speechGranted = speechStatus == .authorized
+                let microphoneGranted = microphoneStatus == .authorized
+                let bothGranted = speechGranted && microphoneGranted
+                
+                if bothGranted {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Toggle("Enable Voice Activation Hotkey", isOn: $colorTheme.voiceActivationEnabled)
+                                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                                .onChange(of: colorTheme.voiceActivationEnabled) {
+                                    colorTheme.saveColors()
+                                }
+                        }
+                        
+                        if colorTheme.voiceActivationEnabled {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Image(systemName: "keyboard")
+                                        .foregroundColor(.blue)
+                                        .font(.system(size: 14))
+                                    Text("Press the hotkey to activate voice mode instead of clicking the microphone button")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.secondary)
+                                }
+                                
+                                HStack {
+                                    Image(systemName: "info.circle")
+                                        .foregroundColor(.blue)
+                                        .font(.system(size: 14))
+                                    Text("Voice activation uses the same hotkey as opening the app (currently: ⌃⇧Z)")
+                                        .font(.system(size: 13))
+                                        .foregroundColor(.secondary)
+                                }
+                            }
+                        } else {
+                            HStack {
+                                Image(systemName: "info.circle")
+                                    .foregroundColor(.orange)
+                                    .font(.system(size: 14))
+                                Text("Voice hotkey disabled. Use the microphone button to activate voice mode.")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                } else {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundColor(.orange)
+                            Text("⚠️ Voice activation requires speech and microphone permissions")
+                                .foregroundColor(.orange)
+                        }
+                        
+                        Text("Grant both permissions below to enable voice activation hotkey")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+            
+            Divider()
+            
             // Speech Recognition Permissions
             VStack(alignment: .leading, spacing: 12) {
                 Text("Speech Recognition & Voice Commands")
