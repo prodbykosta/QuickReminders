@@ -1124,7 +1124,14 @@ struct FloatingReminderView: View {
     }
     
     private func executeCommand(_ commandText: String, _ lowercaseText: String) {
-        lastCommandTime = Date()
+        // Prevent rapid commands (especially list commands that can cause crashes)
+        let now = Date()
+        if now.timeIntervalSince(lastCommandTime) < 0.5 {
+            // Command too soon after last one, ignore
+            return
+        }
+        
+        lastCommandTime = now
         isProcessing = true
         
         // Cancel any existing timer
@@ -1414,7 +1421,10 @@ struct FloatingReminderView: View {
         listFilter = filter
         
         // Guard against rapid state changes
-        guard !isTransitioning else { return }
+        guard !isTransitioning else { 
+            resetProcessing()
+            return 
+        }
         isTransitioning = true
         
         // First hide any existing view
@@ -1438,8 +1448,16 @@ struct FloatingReminderView: View {
             }
         }
         
+        // Set transition to false after animation with safety timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            isTransitioning = false
+            self.isTransitioning = false
+        }
+        
+        // Safety timeout in case something goes wrong
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            if self.isTransitioning {
+                self.isTransitioning = false
+            }
         }
         
         // Clear text on successful list command
@@ -1677,7 +1695,10 @@ struct FloatingReminderView: View {
         pendingCommand = command
         
         // Guard against rapid state changes
-        guard !isTransitioning else { return }
+        guard !isTransitioning else { 
+            resetProcessing()
+            return 
+        }
         isTransitioning = true
         
         // First hide any existing view
@@ -1701,8 +1722,16 @@ struct FloatingReminderView: View {
             }
         }
         
+        // Set transition to false after animation with safety timeout
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-            isTransitioning = false
+            self.isTransitioning = false
+        }
+        
+        // Safety timeout in case something goes wrong
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+            if self.isTransitioning {
+                self.isTransitioning = false
+            }
         }
     }
     
