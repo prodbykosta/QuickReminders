@@ -313,7 +313,16 @@ class NLParser {
                 // Find next occurrence of this weekday
                 let targetWeekday = weekday.weekdayNumber
                 var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: now)
-                if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                
+                if weekday.isNext {
+                    // For "next monday", always go to next week's monday
+                    if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                    daysUntilTarget += 7  // Add another week to ensure it's "next"
+                } else {
+                    // For regular weekdays, go to next occurrence
+                    if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                }
+                
                 startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: now)
             } else if let daysFromNow = relativeDateInfo.daysFromNow {
                 // Use "in X days/weeks/months" pattern
@@ -386,7 +395,15 @@ class NLParser {
             
             let targetWeekday = weekday.weekdayNumber
             var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: now)
-            if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+            
+            if weekday.isNext {
+                // For "next monday", always go to next week's monday
+                if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                daysUntilTarget += 7  // Add another week to ensure it's "next"
+            } else {
+                // For regular weekdays, go to next occurrence
+                if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+            }
             
             if let startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: now) {
                 var components = calendar.dateComponents([.year, .month, .day], from: startDate)
@@ -473,7 +490,7 @@ class NLParser {
         return nil
     }
     
-    private func detectWeekday(in text: String, detectedPhrases: inout [String]) -> (name: String, weekdayNumber: Int)? {
+    private func detectWeekday(in text: String, detectedPhrases: inout [String]) -> (name: String, weekdayNumber: Int, isNext: Bool)? {
         let weekdays = [
             ("monday", 2), ("mon", 2),
             ("tuesday", 3), ("tue", 3),
@@ -484,13 +501,24 @@ class NLParser {
             ("sunday", 1), ("sun", 1)
         ]
         
-        // Use word boundary regex to ensure accurate matching
+        // First check for "next weekday" patterns
+        for (name, number) in weekdays {
+            let nextPattern = "\\bnext\\s+\(NSRegularExpression.escapedPattern(for: name))\\b"
+            if let regex = try? NSRegularExpression(pattern: nextPattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                let matchedPhrase = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedPhrase)
+                return (name, number, true)
+            }
+        }
+        
+        // Then check for regular weekday patterns
         for (name, number) in weekdays {
             let pattern = "\\b\(NSRegularExpression.escapedPattern(for: name))\\b"
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
                regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) != nil {
                 detectedPhrases.append(name)
-                return (name, number)
+                return (name, number, false)
             }
         }
         
@@ -846,7 +874,7 @@ class NLParser {
                 let phraseInContext = findPhraseInContext(phrase, in: lowercaseText)
                 let isSchedulingContext = phraseInContext.contains("on ") || 
                                         phraseInContext.contains("this ") || 
-                                        phraseInContext.contains("next ") ||
+                                        phrase.contains("next ") ||
                                         isWeekdayAtEndForScheduling(phrase, in: lowercaseText) ||
                                         (!schedulingPhrases.monthReferences.isEmpty || 
                                          !schedulingPhrases.numericDates.isEmpty || 
