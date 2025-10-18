@@ -310,20 +310,36 @@ class NLParser {
                     startDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
                 }
             } else if let weekday = weekdayInfo {
-                // Find next occurrence of this weekday
+                // Calculate target date based on weekday info
                 let targetWeekday = weekday.weekdayNumber
-                var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: now)
                 
-                if weekday.isNext {
-                    // For "next monday", always go to next week's monday
-                    if daysUntilTarget <= 0 { daysUntilTarget += 7 }
-                    daysUntilTarget += 7  // Add another week to ensure it's "next"
+                if let weeksFromNow = weekday.weeksFromNow {
+                    // "in X weeks friday" or "friday in X weeks"
+                    let futureDate = calendar.date(byAdding: .weekOfYear, value: weeksFromNow, to: now) ?? now
+                    var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: futureDate)
+                    if daysUntilTarget < 0 { daysUntilTarget += 7 }
+                    startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: futureDate)
+                } else if let monthsFromNow = weekday.monthsFromNow {
+                    // "in X months friday" or "friday in X months"
+                    let futureMonth = calendar.date(byAdding: .month, value: monthsFromNow, to: now) ?? now
+                    var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: futureMonth)
+                    if daysUntilTarget < 0 { daysUntilTarget += 7 }
+                    startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: futureMonth)
                 } else {
-                    // For regular weekdays, go to next occurrence
-                    if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                    // Regular weekday logic
+                    var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: now)
+                    
+                    if weekday.isNext {
+                        // For "next monday", always go to next week's monday
+                        if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                        daysUntilTarget += 7  // Add another week to ensure it's "next"
+                    } else {
+                        // For regular weekdays, go to next occurrence
+                        if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                    }
+                    
+                    startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: now)
                 }
-                
-                startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: now)
             } else if let daysFromNow = relativeDateInfo.daysFromNow {
                 // Use "in X days/weeks/months" pattern
                 startDate = calendar.date(byAdding: .day, value: daysFromNow, to: now)
@@ -490,7 +506,7 @@ class NLParser {
         return nil
     }
     
-    private func detectWeekday(in text: String, detectedPhrases: inout [String]) -> (name: String, weekdayNumber: Int, isNext: Bool)? {
+    private func detectWeekday(in text: String, detectedPhrases: inout [String]) -> (name: String, weekdayNumber: Int, isNext: Bool, weeksFromNow: Int?, monthsFromNow: Int?)? {
         let weekdays = [
             ("monday", 2), ("mon", 2),
             ("tuesday", 3), ("tue", 3),
@@ -501,14 +517,53 @@ class NLParser {
             ("sunday", 1), ("sun", 1)
         ]
         
-        // First check for "next weekday" patterns
+        // First check for "in X weeks/months weekday" patterns
+        for (name, number) in weekdays {
+            // "in 2 weeks friday" or "in 3 months monday"
+            let inXPattern = "\\bin\\s+(\\d+)\\s+(weeks?|months?)\\s+\(NSRegularExpression.escapedPattern(for: name))\\b"
+            if let regex = try? NSRegularExpression(pattern: inXPattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                let matchedPhrase = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedPhrase)
+                
+                let numberStr = String(text[Range(match.range(at: 1), in: text)!])
+                let unitStr = String(text[Range(match.range(at: 2), in: text)!]).lowercased()
+                let amount = Int(numberStr) ?? 1
+                
+                if unitStr.contains("week") {
+                    return (name, number, false, amount, nil)
+                } else if unitStr.contains("month") {
+                    return (name, number, false, nil, amount)
+                }
+            }
+            
+            // "friday in 2 weeks" or "monday in 3 months"
+            let weekdayInXPattern = "\(NSRegularExpression.escapedPattern(for: name))\\s+in\\s+(\\d+)\\s+(weeks?|months?)\\b"
+            if let regex = try? NSRegularExpression(pattern: weekdayInXPattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                let matchedPhrase = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedPhrase)
+                
+                let numberStr = String(text[Range(match.range(at: 1), in: text)!])
+                let unitStr = String(text[Range(match.range(at: 2), in: text)!]).lowercased()
+                let amount = Int(numberStr) ?? 1
+                
+                if unitStr.contains("week") {
+                    return (name, number, false, amount, nil)
+                } else if unitStr.contains("month") {
+                    return (name, number, false, nil, amount)
+                }
+            }
+        }
+        
+        // Then check for "next weekday" patterns
         for (name, number) in weekdays {
             let nextPattern = "\\bnext\\s+\(NSRegularExpression.escapedPattern(for: name))\\b"
             if let regex = try? NSRegularExpression(pattern: nextPattern, options: .caseInsensitive),
                let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
                 let matchedPhrase = String(text[Range(match.range, in: text)!])
                 detectedPhrases.append(matchedPhrase)
-                return (name, number, true)
+                return (name, number, true, nil, nil)
             }
         }
         
@@ -518,7 +573,7 @@ class NLParser {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
                regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) != nil {
                 detectedPhrases.append(name)
-                return (name, number, false)
+                return (name, number, false, nil, nil)
             }
         }
         
