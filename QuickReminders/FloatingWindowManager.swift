@@ -1169,7 +1169,7 @@ struct FloatingReminderView: View {
         let moveKeywords = colorTheme.shortcutsEnabled ?
             ["move", "reschedule", "mv "] :
             ["move", "reschedule"]
-        if moveKeywords.contains(where: { lowercaseText.contains($0) }) {
+        if moveKeywords.contains(where: { lowercaseText.starts(with: $0) }) {
             handleMoveCommand(lowercaseText, resetProcessing: resetProcessing)
             return
         }

@@ -32,11 +32,11 @@ class SyntaxHighlighter {
         // Define color patterns - ORDER MATTERS! More specific patterns should come first
         var patterns: [(pattern: String, color: NSColor)] = []
         
-        // Commands (BLUE) - conditional based on shortcuts setting
+        // Commands (BLUE) - only at the start of text
         if shortcutsEnabled {
-            patterns.append(("\\b(mv|rm|move|remove|delete|reschedule|list|ls)\\b", NSColor.systemBlue))
+            patterns.append(("^(mv|rm|move|remove|delete|reschedule|list|ls)\\b", NSColor.systemBlue))
         } else {
-            patterns.append(("\\b(move|remove|delete|reschedule|list)\\b", NSColor.systemBlue))
+            patterns.append(("^(move|remove|delete|reschedule|list)\\b", NSColor.systemBlue))
         }
         
         // Add the rest of the patterns
@@ -77,8 +77,11 @@ class SyntaxHighlighter {
             ("\\buntil\\b", NSColor.systemGreen),
             ("\\b\\d{4}\\b", NSColor.systemGreen), // Years like 2025, 2026
             
-            // Connectors (PURPLE) 
-            ("\\b(at|on|to|from|by|in)\\b", NSColor.systemPurple),
+            // Connectors (PURPLE) - only when followed by temporal keywords
+            ("\\bat\\s+(?=\\d{1,2}|morning|afternoon|evening|night|noon)", NSColor.systemPurple),
+            ("\\bon\\s+(?=monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun|today|tomorrow|\\d{1,2}[./]\\d{1,2})", NSColor.systemPurple),
+            ("\\bin\\s+(?=\\d+\\s+(?:day|days|week|weeks|month|months)|morning|afternoon|evening)", NSColor.systemPurple),
+            ("\\b(to|from|by)\\b", NSColor.systemPurple),
             
             // Date patterns (YELLOW) - conditional shortcuts
             (shortcutsEnabled ? 
