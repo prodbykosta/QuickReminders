@@ -225,12 +225,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         quitItem.target = self
         menu.addItem(quitItem)
         
-        // Debug item to help troubleshoot
-        menu.addItem(NSMenuItem.separator())
-        let debugItem = NSMenuItem(title: "🐛 Debug Info", action: #selector(showDebugInfo), keyEquivalent: "")
-        debugItem.target = self
-        menu.addItem(debugItem)
-        
         // Set the menu immediately
         statusItem.menu = menu
         // Menu bar setup complete
@@ -327,75 +321,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
         NSApplication.shared.terminate(nil)
     }
     
-    @objc private func showDebugInfo() {
-        // Debug Info requested
-        
-        let alert = NSAlert()
-        alert.messageText = "Debug Information"
-        
-        let reminderStatus: String
-        if #available(macOS 14.0, *) {
-            let status = EKEventStore.authorizationStatus(for: .reminder)
-            reminderStatus = "Reminder Status: \(status.rawValue) (\(status == .fullAccess ? "Full Access" : status == .writeOnly ? "Write Only" : status == .notDetermined ? "Not Determined" : status == .denied ? "Denied" : "Restricted"))"
-        } else {
-            // Fallback on earlier versions
-            let status = EKEventStore.authorizationStatus(for: .reminder)
-            switch status {
-            case .authorized:
-                reminderStatus = "Reminder Status: Authorized"
-            case .denied:
-                reminderStatus = "Reminder Status: Denied"
-            case .notDetermined:
-                reminderStatus = "Reminder Status: Not Determined"
-            case .restricted:
-                reminderStatus = "Reminder Status: Restricted"
-            case .fullAccess:
-                reminderStatus = "Reminder Status: Full Access"
-            case .writeOnly:
-                reminderStatus = "Reminder Status: Write Only"
-            @unknown default:
-                reminderStatus = "Reminder Status: Unknown"
-            }
-        }
-        
-        let hotKeyStatus = AXIsProcessTrusted() ? "Accessibility: ✅ Granted" : "Accessibility: ❌ Denied"
-        
-        alert.informativeText = """
-        App Status:
-        • Has Reminders Access: \(reminderManager.hasAccess ? "✅ Yes" : "❌ No")
-        • \(reminderStatus)
-        • \(hotKeyStatus)
-        • Reminder Lists: \(reminderManager.availableLists.count)
-        • Status Item: \(statusItem != nil ? "✅ Created" : "❌ Missing")
-        • Menu Items: \(statusItem?.menu?.items.count ?? 0)
-        
-        If the bolt icon isn't clickable, try:
-        1. Restart the app
-        2. Check Console.app for error messages
-        3. Grant Reminders permission in System Settings
-        """
-        
-        alert.addButton(withTitle: "OK")
-        alert.addButton(withTitle: "Request Reminders Permission")
-        alert.addButton(withTitle: "Open System Settings")
-        
-        NSApp.setActivationPolicy(.regular)
-        NSApp.activate(ignoringOtherApps: true)
-        
-        let response = alert.runModal()
-        
-        switch response {
-        case .alertSecondButtonReturn:
-            reminderManager.requestPermissionManually()
-        case .alertThirdButtonReturn:
-            let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders")!
-            NSWorkspace.shared.open(url)
-        default:
-            break
-        }
-        
-        NSApp.setActivationPolicy(.accessory)
-    }
     
     private func showGettingStartedWindow() {
         // Create getting started window

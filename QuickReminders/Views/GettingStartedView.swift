@@ -7,11 +7,14 @@
 
 import SwiftUI
 import EventKit
+import AVFoundation
 
 enum GettingStartedScreen {
     case welcome
     case accessibility
     case reminders
+    case speechRecognition
+    case microphone
     case done
 }
 
@@ -19,6 +22,8 @@ struct GettingStartedView: View {
     @State private var currentScreen: GettingStartedScreen = .welcome
     @State private var accessibilityWaiting = false
     @State private var remindersWaiting = false
+    @State private var speechWaiting = false
+    @State private var microphoneWaiting = false
     @ObservedObject var reminderManager: ReminderManager
     let onComplete: () -> Void
     
@@ -60,6 +65,16 @@ struct GettingStartedView: View {
                     RemindersPermissionView(
                         reminderManager: reminderManager,
                         waiting: $remindersWaiting,
+                        onNext: { currentScreen = .speechRecognition }
+                    )
+                case .speechRecognition:
+                    SpeechRecognitionPermissionView(
+                        waiting: $speechWaiting,
+                        onNext: { currentScreen = .microphone }
+                    )
+                case .microphone:
+                    MicrophonePermissionView(
+                        waiting: $microphoneWaiting,
                         onNext: { currentScreen = .done }
                     )
                 case .done:
@@ -102,6 +117,22 @@ struct WelcomeScreenView: View {
                             .foregroundColor(.green)
                             .frame(width: 20)
                         Text("Reminders - to create and manage your reminders")
+                            .font(.system(size: 14))
+                    }
+                    
+                    HStack {
+                        Image(systemName: "mic.fill")
+                            .foregroundColor(.purple)
+                            .frame(width: 20)
+                        Text("Microphone - for voice commands")
+                            .font(.system(size: 14))
+                    }
+                    
+                    HStack {
+                        Image(systemName: "waveform")
+                            .foregroundColor(.orange)
+                            .frame(width: 20)
+                        Text("Speech Recognition - for voice input")
                             .font(.system(size: 14))
                     }
                 }
@@ -279,15 +310,82 @@ struct RemindersPermissionView: View {
                     .buttonStyle(.plain)
                 }
             } else {
-                Button(action: requestRemindersPermission) {
-                    Text("Ask for Permission")
-                        .font(.system(size: 16, weight: .semibold))
-                        .foregroundColor(.white)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(.green, in: RoundedRectangle(cornerRadius: 12))
+                Group {
+                    if getReminderAuthorizationStatus() == .notDetermined {
+                        Button(action: requestRemindersPermission) {
+                            Text("Ask for Permission")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(.green, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button(action: openRemindersSettings) {
+                            Text("Open System Settings")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(.orange, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
+            }
+            
+            Divider()
+                .padding(.vertical, 16)
+            
+            // Microphone Permission Section
+            VStack(spacing: 12) {
+                HStack {
+                    Image(systemName: "mic.fill")
+                        .foregroundColor(.purple)
+                        .frame(width: 20)
+                    Text("Microphone Permission (Optional)")
+                        .font(.system(size: 16, weight: .medium))
+                    Spacer()
+                }
+                
+                let microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
+                
+                if microphoneStatus == .authorized {
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("✅ Microphone access granted")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                        Spacer()
+                    }
+                } else {
+                    HStack {
+                        Image(systemName: microphoneStatus == .denied ? "xmark.circle.fill" : "questionmark.circle.fill")
+                            .foregroundColor(microphoneStatus == .denied ? .red : .orange)
+                        Text(microphoneStatus == .denied ? "❌ Microphone access denied" : "⚠️ Microphone access needed for voice commands")
+                            .foregroundColor(microphoneStatus == .denied ? .red : .orange)
+                            .font(.caption)
+                        Spacer()
+                    }
+                    
+                    HStack(spacing: 8) {
+                        if microphoneStatus == .notDetermined {
+                            Button("Request Permission") {
+                                requestMicrophonePermission()
+                            }
+                            .buttonStyle(.borderless)
+                            .foregroundColor(.blue)
+                        }
+                        
+                        Button("Open Settings") {
+                            openMicrophoneSettings()
+                        }
+                        .buttonStyle(.borderless)
+                        .foregroundColor(.blue)
+                    }
+                }
             }
         }
         .onAppear {
@@ -318,6 +416,229 @@ struct RemindersPermissionView: View {
                     checkPermissionPeriodically()
                 }
             }
+        }
+    }
+    
+    private func getReminderAuthorizationStatus() -> EKAuthorizationStatus {
+        if #available(macOS 14.0, *) {
+            return EKEventStore.authorizationStatus(for: .reminder)
+        } else {
+            return EKEventStore.authorizationStatus(for: .reminder)
+        }
+    }
+    
+    private func openRemindersSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+    
+    private func requestMicrophonePermission() {
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            // The UI will update automatically based on the permission status
+        }
+    }
+    
+    private func openMicrophoneSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+}
+
+struct SpeechRecognitionPermissionView: View {
+    @Binding var waiting: Bool
+    let onNext: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 12) {
+                Image(systemName: "waveform")
+                    .font(.system(size: 32))
+                    .foregroundColor(.orange)
+                
+                Text("Speech Recognition Permission")
+                    .font(.system(size: 20, weight: .semibold))
+                
+                Text("QuickReminders needs speech recognition access to convert your voice into text")
+                    .font(.system(size: 14))
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            
+            let speechStatus = SFSpeechRecognizer.authorizationStatus()
+            
+            if speechStatus == .authorized {
+                VStack(spacing: 16) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 24))
+                        .foregroundColor(.green)
+                    
+                    Text("Permission Granted!")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.green)
+                    
+                    Button(action: onNext) {
+                        Text("Continue")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(.green, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                }
+            } else {
+                if SFSpeechRecognizer.authorizationStatus() == .notDetermined {
+                    Button(action: requestSpeechRecognitionPermission) {
+                        Text("Request Permission")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(.orange, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Button(action: openSpeechRecognitionSettings) {
+                        Text("Open System Settings")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(.orange, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .onAppear {
+            if SFSpeechRecognizer.authorizationStatus() == .authorized {
+                onNext()
+            }
+        }
+    }
+    
+    private func requestSpeechRecognitionPermission() {
+        waiting = true
+        SFSpeechRecognizer.requestAuthorization { status in
+            DispatchQueue.main.async {
+                waiting = false
+                if status == .authorized {
+                    onNext()
+                }
+            }
+        }
+    }
+    
+    private func openSpeechRecognitionSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition") {
+            NSWorkspace.shared.open(url)
+        }
+    }
+}
+
+struct MicrophonePermissionView: View {
+    @Binding var waiting: Bool
+    let onNext: () -> Void
+    
+    var body: some View {
+        VStack(spacing: 24) {
+            VStack(spacing: 12) {
+                Image(systemName: "mic.fill")
+                    .font(.system(size: 32))
+                    .foregroundColor(.purple)
+                
+                Text("Microphone Permission")
+                    .font(.system(size: 20, weight: .semibold))
+                
+                Text("QuickReminders needs microphone access for voice commands and input")
+                    .font(.system(size: 14))
+                    .multilineTextAlignment(.center)
+                    .foregroundColor(.secondary)
+            }
+            
+            if waiting {
+                VStack(spacing: 16) {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                    
+                    Text("Waiting for permission...")
+                        .font(.system(size: 14))
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                Group {
+                    if getMicrophoneAuthorizationStatus() == .authorized {
+                        VStack(spacing: 16) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 24))
+                                .foregroundColor(.green)
+                            
+                            Text("Permission Granted!")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.green)
+                            
+                            Button(action: onNext) {
+                                Text("Continue")
+                                    .font(.system(size: 16, weight: .semibold))
+                                    .foregroundColor(.white)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                                    .background(.green, in: RoundedRectangle(cornerRadius: 12))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    } else if getMicrophoneAuthorizationStatus() == .notDetermined {
+                        Button(action: requestMicrophonePermission) {
+                            Text("Request Permission")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(.purple, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    } else {
+                        Button(action: openMicrophoneSettings) {
+                            Text("Open System Settings")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                                .background(.orange, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+        }
+        .onAppear {
+            if getMicrophoneAuthorizationStatus() == .authorized {
+                onNext()
+            }
+        }
+    }
+    
+    private func requestMicrophonePermission() {
+        waiting = true
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            DispatchQueue.main.async {
+                waiting = false
+                if granted {
+                    onNext()
+                }
+            }
+        }
+    }
+    
+    private func getMicrophoneAuthorizationStatus() -> AVAuthorizationStatus {
+        return AVCaptureDevice.authorizationStatus(for: .audio)
+    }
+    
+    private func openMicrophoneSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
+            NSWorkspace.shared.open(url)
         }
     }
 }
