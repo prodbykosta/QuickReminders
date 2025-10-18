@@ -335,59 +335,6 @@ struct RemindersPermissionView: View {
                     }
                 }
             }
-            
-            Divider()
-                .padding(.vertical, 16)
-            
-            // Microphone Permission Section
-            VStack(spacing: 12) {
-                HStack {
-                    Image(systemName: "mic.fill")
-                        .foregroundColor(.purple)
-                        .frame(width: 20)
-                    Text("Microphone Permission (Optional)")
-                        .font(.system(size: 16, weight: .medium))
-                    Spacer()
-                }
-                
-                let microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
-                
-                if microphoneStatus == .authorized {
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                        Text("✅ Microphone access granted")
-                            .foregroundColor(.green)
-                            .font(.caption)
-                        Spacer()
-                    }
-                } else {
-                    HStack {
-                        Image(systemName: microphoneStatus == .denied ? "xmark.circle.fill" : "questionmark.circle.fill")
-                            .foregroundColor(microphoneStatus == .denied ? .red : .orange)
-                        Text(microphoneStatus == .denied ? "❌ Microphone access denied" : "⚠️ Microphone access needed for voice commands")
-                            .foregroundColor(microphoneStatus == .denied ? .red : .orange)
-                            .font(.caption)
-                        Spacer()
-                    }
-                    
-                    HStack(spacing: 8) {
-                        if microphoneStatus == .notDetermined {
-                            Button("Request Permission") {
-                                requestMicrophonePermission()
-                            }
-                            .buttonStyle(.borderless)
-                            .foregroundColor(.blue)
-                        }
-                        
-                        Button("Open Settings") {
-                            openMicrophoneSettings()
-                        }
-                        .buttonStyle(.borderless)
-                        .foregroundColor(.blue)
-                    }
-                }
-            }
         }
         .onAppear {
             // Check if already has access
@@ -430,18 +377,6 @@ struct RemindersPermissionView: View {
     
     private func openRemindersSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Reminders") {
-            NSWorkspace.shared.open(url)
-        }
-    }
-    
-    private func requestMicrophonePermission() {
-        AVCaptureDevice.requestAccess(for: .audio) { granted in
-            // The UI will update automatically based on the permission status
-        }
-    }
-    
-    private func openMicrophoneSettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
             NSWorkspace.shared.open(url)
         }
     }
@@ -490,44 +425,20 @@ struct SpeechRecognitionPermissionView: View {
                     .buttonStyle(.plain)
                 }
             } else {
-                if SFSpeechRecognizer.authorizationStatus() == .notDetermined {
-                    Button(action: requestSpeechRecognitionPermission) {
-                        Text("Request Permission")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(.orange, in: RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
-                } else {
-                    Button(action: openSpeechRecognitionSettings) {
-                        Text("Open System Settings")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(.orange, in: RoundedRectangle(cornerRadius: 12))
-                    }
-                    .buttonStyle(.plain)
+                Button(action: openSpeechRecognitionSettings) {
+                    Text("Open System Settings")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundColor(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(.orange, in: RoundedRectangle(cornerRadius: 12))
                 }
+                .buttonStyle(.plain)
             }
         }
         .onAppear {
             if SFSpeechRecognizer.authorizationStatus() == .authorized {
                 onNext()
-            }
-        }
-    }
-    
-    private func requestSpeechRecognitionPermission() {
-        waiting = true
-        SFSpeechRecognizer.requestAuthorization { status in
-            DispatchQueue.main.async {
-                waiting = false
-                if status == .authorized {
-                    onNext()
-                }
             }
         }
     }
