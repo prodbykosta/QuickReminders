@@ -21,6 +21,7 @@ extension Notification.Name {
     static let escapeKeyWasPressed = Notification.Name("EscapeKeyWasPressed")
     static let applicationShouldExit = Notification.Name("ApplicationShouldExit")
     static let accessibilityPermissionChanged = Notification.Name("accessibilityPermissionChanged")
+    static let voiceActivationRequested = Notification.Name("voiceActivationRequested")
 }
 
 @main

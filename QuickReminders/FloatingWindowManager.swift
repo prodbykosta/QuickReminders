@@ -402,6 +402,16 @@ class FloatingWindowManager: ObservableObject {
         
         return NSRect(x: actualX, y: actualY, width: windowSize.width, height: windowSize.height)
     }
+    
+    // MARK: - Voice Activation Support
+    
+    // Public method for voice activation via hotkey
+    func toggleVoiceRecognition() {
+        // We need to trigger voice recognition on the view
+        // Since this is called from the app level, we need to handle this differently
+        // We'll post a notification that the view can listen to
+        NotificationCenter.default.post(name: .voiceActivationRequested, object: nil)
+    }
 }
 
 struct FloatingReminderView: View {
@@ -957,6 +967,10 @@ struct FloatingReminderView: View {
             isProcessing = false
             onClose()
         }
+        .onReceive(NotificationCenter.default.publisher(for: .voiceActivationRequested)) { _ in
+            // Handle voice activation request from hotkey
+            toggleSpeechRecognition()
+        }
         .onDisappear {
             // Clean up timer when view disappears
             // View disappearing, cleaning up
@@ -1097,10 +1111,6 @@ struct FloatingReminderView: View {
         }
     }
     
-    // Public method for voice activation via hotkey
-    func toggleVoiceRecognition() {
-        toggleSpeechRecognition()
-    }
     
     private func showPermissionAlert() {
         let alert = NSAlert()
