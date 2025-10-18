@@ -10,7 +10,7 @@ import AppKit
 
 class SyntaxHighlighter {
     
-    static func highlightText(_ text: String, isEnabled: Bool = true, shortcutsEnabled: Bool = true) -> NSAttributedString {
+    static func highlightText(_ text: String, isEnabled: Bool = true, shortcutsEnabled: Bool = true, timePeriodsEnabled: Bool = true) -> NSAttributedString {
         guard isEnabled else {
             // Return plain text with adaptive color if highlighting is disabled
             let attributedString = NSMutableAttributedString(string: text)
@@ -78,9 +78,9 @@ class SyntaxHighlighter {
             ("\\b\\d{4}\\b", NSColor.systemGreen), // Years like 2025, 2026
             
             // Connectors (PURPLE) - only when followed by temporal keywords
-            ("\\bat\\s+(?=\\d{1,2}|morning|afternoon|evening|night|noon)", NSColor.systemPurple),
+            ("\\bat\\s+(?=\\d{1,2}" + (timePeriodsEnabled ? "|morning|afternoon|evening|night|noon" : "") + ")", NSColor.systemPurple),
             ("\\bon\\s+(?=monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun|today|tomorrow|\\d{1,2}[./]\\d{1,2})", NSColor.systemPurple),
-            ("\\bin\\s+(?=\\d+\\s+(?:day|days|week|weeks|month|months)|morning|afternoon|evening)", NSColor.systemPurple),
+            ("\\bin\\s+(?=\\d+\\s+(?:day|days|week|weeks|month|months)" + (timePeriodsEnabled ? "|morning|afternoon|evening" : "") + ")", NSColor.systemPurple),
             ("\\b(to|from|by)\\b", NSColor.systemPurple),
             
             // Date patterns (YELLOW) - conditional shortcuts
@@ -121,8 +121,12 @@ class SyntaxHighlighter {
             ("(?<=\\bsun\\s)\\d{1,2}\\b", NSColor.systemRed), // numbers after "sun"
             ("\\b\\d{1,2}:\\d{2}\\s*(am|pm|AM|PM)?\\b", NSColor.systemRed), // 9:45pm, 21:30
             ("\\b\\d{1,2}\\s*(am|pm|AM|PM)\\b", NSColor.systemRed), // 9pm, 9AM
-            ("\\b(morning|afternoon|evening|night|noon)\\b", NSColor.systemRed), // Time periods
         ])
+        
+        // Add time periods pattern only if enabled
+        if timePeriodsEnabled {
+            patterns.append(("\\b(morning|afternoon|evening|night|noon)\\b", NSColor.systemRed))
+        }
         
         // Apply colors based on patterns
         for (pattern, color) in patterns {
@@ -148,6 +152,7 @@ class SyntaxHighlighter {
 class HighlightedTextField: NSTextField {
     var colorHelpersEnabled: Bool = true
     var shortcutsEnabled: Bool = true
+    var timePeriodsEnabled: Bool = true
     var onTextChange: ((String) -> Void)?
     private var isUpdatingInternally = false
     
@@ -206,7 +211,7 @@ class HighlightedTextField: NSTextField {
         isUpdatingInternally = true
         
         // Apply syntax highlighting
-        let highlightedText = SyntaxHighlighter.highlightText(currentText, isEnabled: colorHelpersEnabled, shortcutsEnabled: shortcutsEnabled)
+        let highlightedText = SyntaxHighlighter.highlightText(currentText, isEnabled: colorHelpersEnabled, shortcutsEnabled: shortcutsEnabled, timePeriodsEnabled: timePeriodsEnabled)
         
         // Update the text storage
         textView.textStorage?.setAttributedString(highlightedText)
@@ -229,6 +234,11 @@ class HighlightedTextField: NSTextField {
     
     func setShortcutsEnabled(_ enabled: Bool) {
         shortcutsEnabled = enabled
+        applyHighlighting()
+    }
+    
+    func setTimePeriodsEnabled(_ enabled: Bool) {
+        timePeriodsEnabled = enabled
         applyHighlighting()
     }
 }

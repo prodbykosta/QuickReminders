@@ -626,24 +626,80 @@ class NLParser {
         return nil
     }
     
+    // Smart context detection for time periods
+    private func detectTimeContext(_ timePeriod: String, in text: String) -> Bool {
+        guard text.contains(timePeriod) else { return false }
+        
+        // Find all occurrences of the time period
+        let regex = try! NSRegularExpression(pattern: "\\b\(NSRegularExpression.escapedPattern(for: timePeriod))\\b", options: .caseInsensitive)
+        let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: text.count))
+        
+        for match in matches {
+            let range = Range(match.range, in: text)!
+            let beforeText = String(text[..<range.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let afterText = String(text[range.upperBound...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            
+            // Check if it's being used as a scheduling time (temporal context)
+            if isTemporalContext(beforeText: beforeText, afterText: afterText, timePeriod: timePeriod) {
+                return true
+            }
+        }
+        
+        return false
+    }
+    
+    private func isTemporalContext(beforeText: String, afterText: String, timePeriod: String) -> Bool {
+        // Temporal indicators that suggest the time period is for scheduling
+        let temporalPrefixes = ["at", "in the", "during the", "this", "next", "tomorrow", "today"]
+        let temporalSuffixes = ["at", "on", "every", "until"]
+        
+        // Check for explicit temporal prefixes: "at morning", "in the evening"
+        for prefix in temporalPrefixes {
+            if beforeText.hasSuffix(prefix) {
+                return true
+            }
+        }
+        
+        // Check for patterns that indicate temporal usage from analyzing the end
+        // If there's already a specific time (like "9am") then time period is likely descriptive
+        let hasSpecificTime = afterText.contains("am") || afterText.contains("pm") || afterText.contains(":")
+        if hasSpecificTime {
+            return false // "morning run at 9am" - morning is descriptive
+        }
+        
+        // If at the very end or followed by temporal keywords, likely temporal
+        if afterText.isEmpty || temporalSuffixes.contains(where: { afterText.hasPrefix($0) }) {
+            // But check if it's at the beginning which might be descriptive
+            let words = beforeText.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
+            if words.count <= 1 {
+                return false // "morning run" - morning is likely descriptive
+            }
+            return true // "take out trash morning" - morning is temporal
+        }
+        
+        return false
+    }
+    
     private func detectTime(in text: String, detectedPhrases: inout [String]) -> (hour: Int, minute: Int)? {
-        // First check for preset time periods like "morning", "evening", etc.
-        // Order matters: longer words first to avoid "noon" matching inside "afternoon"
-        let presetTimes = ["afternoon", "morning", "evening", "night", "noon"]
-        for preset in presetTimes {
-            if text.lowercased().contains(preset) {
-                detectedPhrases.append(preset)
-                if let timeComponents = colorTheme?.getTimeComponents(for: preset) {
-                    return timeComponents
-                }
-                // Fallback defaults if colorTheme is not available
-                switch preset {
-                case "morning": return (8, 0)
-                case "noon": return (12, 0)
-                case "afternoon": return (15, 0)
-                case "evening": return (18, 0)
-                case "night": return (21, 0)
-                default: break
+        // First check for preset time periods like "morning", "evening", etc. - only if enabled
+        if colorTheme?.timePeriodsEnabled == true {
+            // Order matters: longer words first to avoid "noon" matching inside "afternoon"
+            let presetTimes = ["afternoon", "morning", "evening", "night", "noon"]
+            for preset in presetTimes {
+                if let timeContext = detectTimeContext(preset, in: text.lowercased()) {
+                    detectedPhrases.append(preset)
+                    if let timeComponents = colorTheme?.getTimeComponents(for: preset) {
+                        return timeComponents
+                    }
+                    // Fallback defaults if colorTheme is not available
+                    switch preset {
+                    case "morning": return (8, 0)
+                    case "noon": return (12, 0)
+                    case "afternoon": return (15, 0)
+                    case "evening": return (18, 0)
+                    case "night": return (21, 0)
+                    default: break
+                    }
                 }
             }
         }
@@ -913,7 +969,7 @@ class NLParser {
             } else if lowercasePhrase.contains("today") || lowercasePhrase.contains("tomorrow") || lowercasePhrase.contains("td") || lowercasePhrase.contains("tm") {
                 schedulingPhrases.relativeDates.append(phrase)
             } else if lowercasePhrase.contains(":") || lowercasePhrase.contains("am") || lowercasePhrase.contains("pm") || 
-                     lowercasePhrase.contains("morning") || lowercasePhrase.contains("afternoon") || lowercasePhrase.contains("evening") {
+                     (colorTheme?.timePeriodsEnabled == true && (lowercasePhrase.contains("morning") || lowercasePhrase.contains("afternoon") || lowercasePhrase.contains("evening"))) {
                 schedulingPhrases.times.append(phrase)
             } else if lowercasePhrase.contains("/") || lowercasePhrase.contains(".") {
                 schedulingPhrases.numericDates.append(phrase)
@@ -2237,7 +2293,9 @@ class NLParser {
     }
     
     private func extractTimePeriod(from text: String) -> (hour: Int, minute: Int)? {
-        // Check for time periods like "morning", "noon", "afternoon", "evening", "night"
+        // Check for time periods like "morning", "noon", "afternoon", "evening", "night" - only if enabled
+        guard colorTheme?.timePeriodsEnabled == true else { return nil }
+        
         let timePeriods = ["morning", "noon", "afternoon", "evening", "night"]
         
         for period in timePeriods {

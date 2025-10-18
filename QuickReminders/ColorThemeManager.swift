@@ -84,6 +84,7 @@ class ColorThemeManager: ObservableObject {
     @Published var openingAnimationEnabled: Bool = true // Enable/disable opening animation
     @Published var searchOnlyCurrentList: Bool = true // Search only in currently selected list for mv/rm commands
     @Published var shortcutsEnabled: Bool = true // Enable/disable shortcut commands (mv, rm, ls, etc.)
+    @Published var timePeriodsEnabled: Bool = true // Enable/disable time period detection (morning, afternoon, etc.)
     @Published var dateFormat: DateFormat = .mmdd // Date format preference (MM/DD vs DD/MM)
     
     // Time presets for natural language periods
@@ -182,6 +183,13 @@ class ColorThemeManager: ObservableObject {
                 self.shortcutsEnabled = true
             }
             
+            // Load time periods enabled setting (default to true if not set)
+            if userDefaults.object(forKey: "TimePeriodsEnabled") != nil {
+                self.timePeriodsEnabled = userDefaults.bool(forKey: "TimePeriodsEnabled")
+            } else {
+                self.timePeriodsEnabled = true
+            }
+            
             // Load date format setting (default to MM/DD if not set)
             if let savedDateFormat = userDefaults.string(forKey: "DateFormat"),
                let dateFormat = DateFormat(rawValue: savedDateFormat) {
@@ -276,6 +284,9 @@ class ColorThemeManager: ObservableObject {
             // Save shortcuts enabled setting
             userDefaults.set(shortcutsEnabled, forKey: "ShortcutsEnabled")
             
+            // Save time periods enabled setting
+            userDefaults.set(timePeriodsEnabled, forKey: "TimePeriodsEnabled")
+            
             // Save date format setting
             userDefaults.set(dateFormat.rawValue, forKey: "DateFormat")
             
@@ -314,6 +325,7 @@ class ColorThemeManager: ObservableObject {
         windowPositionY = 0.74
         openingAnimationEnabled = true
         shortcutsEnabled = true
+        timePeriodsEnabled = true
         saveColors()
     }
     

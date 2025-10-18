@@ -962,6 +962,87 @@ struct GeneralSettingsView: View {
             
             Divider()
             
+            // Time Periods Setting
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "clock.badge.questionmark")
+                        .foregroundColor(.blue)
+                        .font(.title2)
+                    Text("Natural Time Periods")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+                
+                VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Enable Time Period Detection")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text("Turn off natural time periods like 'morning', 'afternoon', 'evening', 'night', 'noon' if you prefer not to use them. When disabled, these words won't be recognized as scheduling operators.")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Toggle("Enable Time Periods", isOn: $colorTheme.timePeriodsEnabled)
+                                .toggleStyle(SwitchToggleStyle(tint: .blue))
+                                .onChange(of: colorTheme.timePeriodsEnabled) {
+                                    colorTheme.saveColors()
+                                }
+                        }
+                        
+                        if colorTheme.timePeriodsEnabled {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Recognized time periods:")
+                                    .font(.system(size: 14, weight: .medium))
+                                    .foregroundColor(.secondary)
+                                
+                                VStack(alignment: .leading, spacing: 4) {
+                                    HStack {
+                                        Text("morning, afternoon, evening, night, noon")
+                                            .foregroundColor(.red)
+                                            .font(.system(size: 13, weight: .medium))
+                                        Text("- Used for scheduling times")
+                                            .font(.system(size: 12))
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Text("Example: 'dinner tomorrow evening' → uses evening preset time")
+                                        .font(.system(size: 12))
+                                        .foregroundColor(.blue)
+                                        .italic()
+                                }
+                                .padding(.leading, 8)
+                            }
+                        } else {
+                            HStack {
+                                Image(systemName: "info.circle")
+                                    .foregroundColor(.orange)
+                                    .font(.system(size: 14))
+                                Text("Time periods are disabled. Words like 'morning' will be treated as regular text.")
+                                    .font(.system(size: 13))
+                                    .foregroundColor(.secondary)
+                            }
+                        }
+                    }
+                }
+                .padding(.vertical, 16)
+                .padding(.horizontal, 20)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(.regularMaterial)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
+                        )
+                )
+            }
+            
+            Divider()
+            
             // Window Positioning Setting
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
@@ -1138,6 +1219,71 @@ struct GeneralSettingsView: View {
                         )
                 )
             }
+            
+            Divider()
+            
+            // Developer Section
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "hammer.fill")
+                        .foregroundColor(.blue)
+                        .font(.title2)
+                    Text("Developer")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+                
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Created by")
+                        .font(.headline)
+                    
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "envelope.fill")
+                                .foregroundColor(.blue)
+                                .frame(width: 16)
+                            Button("contact@prodbykosta.com") {
+                                if let url = URL(string: "mailto:contact@prodbykosta.com") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(.blue)
+                        }
+                        
+                        HStack {
+                            Image(systemName: "camera.fill")
+                                .foregroundColor(.purple)
+                                .frame(width: 16)
+                            Button("@prodbykosta") {
+                                if let url = URL(string: "https://instagram.com/prodbykosta") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(.blue)
+                        }
+                        
+                        HStack {
+                            Image(systemName: "person.crop.square.fill")
+                                .foregroundColor(.blue)
+                                .frame(width: 16)
+                            Button("LinkedIn Profile") {
+                                if let url = URL(string: "https://www.linkedin.com/in/prodbykosta/") {
+                                    NSWorkspace.shared.open(url)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundColor(.blue)
+                        }
+                    }
+                    
+                    Text("Get in touch for feedback, suggestions, or just say hi!")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .italic()
+                }
+            }
         }
     }
     
@@ -1220,18 +1366,8 @@ struct GeneralSettingsView: View {
     }
     
     private func openSpeechRecognitionSettings() {
-        let alert = NSAlert()
-        alert.messageText = "Speech Recognition Permission Required"
-        alert.informativeText = "Please enable Speech Recognition for QuickReminders in System Settings > Privacy & Security > Speech Recognition."
-        alert.addButton(withTitle: "Open System Settings")
-        alert.addButton(withTitle: "Cancel")
-        alert.alertStyle = .informational
-        
-        let response = alert.runModal()
-        if response == .alertFirstButtonReturn {
-            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition") {
-                NSWorkspace.shared.open(url)
-            }
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_SpeechRecognition") {
+            NSWorkspace.shared.open(url)
         }
     }
     

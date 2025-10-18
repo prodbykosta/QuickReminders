@@ -103,6 +103,7 @@ struct FocusableTextField: NSViewRepresentable {
     var onSubmit: () -> Void
     var colorHelpersEnabled: Bool
     var shortcutsEnabled: Bool
+    var timePeriodsEnabled: Bool
     
     func makeNSView(context: Context) -> HighlightedTextField {
         let textField = HighlightedTextField()
@@ -113,6 +114,7 @@ struct FocusableTextField: NSViewRepresentable {
         textField.action = #selector(Coordinator.textFieldAction(_:))
         textField.colorHelpersEnabled = colorHelpersEnabled
         textField.shortcutsEnabled = shortcutsEnabled
+        textField.timePeriodsEnabled = timePeriodsEnabled
         
         // Auto-focus after a short delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -126,6 +128,7 @@ struct FocusableTextField: NSViewRepresentable {
         // Update settings first
         nsView.setColorHelpersEnabled(colorHelpersEnabled)
         nsView.setShortcutsEnabled(shortcutsEnabled)
+        nsView.setTimePeriodsEnabled(timePeriodsEnabled)
         
         // Only update text if it's different to avoid cursor jumping
         if nsView.stringValue != text {
@@ -492,7 +495,8 @@ struct FloatingReminderView: View {
                         placeholder: speechManager.isListening ? "Listening..." : "Type your reminder command...",
                         onSubmit: processCommand,
                         colorHelpersEnabled: colorTheme.colorHelpersEnabled,
-                        shortcutsEnabled: colorTheme.shortcutsEnabled
+                        shortcutsEnabled: colorTheme.shortcutsEnabled,
+                        timePeriodsEnabled: colorTheme.timePeriodsEnabled
                     )
                     .font(.system(size: 16, weight: .medium))
                     .disabled(speechManager.isListening)
