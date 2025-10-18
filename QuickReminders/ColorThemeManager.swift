@@ -9,6 +9,20 @@ import SwiftUI
 import Foundation
 import Combine
 
+enum AppearanceTheme: String, CaseIterable {
+    case light = "light"
+    case dark = "dark"
+    case system = "system"
+    
+    var displayName: String {
+        switch self {
+        case .light: return "Light"
+        case .dark: return "Dark"
+        case .system: return "System"
+        }
+    }
+}
+
 enum WindowPosition: String, CaseIterable {
     case topLeft = "topLeft"
     case topCenter = "topCenter"
@@ -87,6 +101,7 @@ class ColorThemeManager: ObservableObject {
     @Published var timePeriodsEnabled: Bool = true // Enable/disable time period detection (morning, afternoon, etc.)
     @Published var voiceActivationEnabled: Bool = false // Enable/disable voice activation hotkey
     @Published var dateFormat: DateFormat = .mmdd // Date format preference (MM/DD vs DD/MM)
+    @Published var appearanceTheme: AppearanceTheme = .system // App appearance theme
     
     // Time presets for natural language periods
     @Published var morningTime: String = "8:00 AM" // Default time for "morning"
@@ -99,6 +114,7 @@ class ColorThemeManager: ObservableObject {
     
     init() {
         loadColors()
+        applyCurrentTheme()
     }
     
     // MARK: - Color Persistence
@@ -206,6 +222,14 @@ class ColorThemeManager: ObservableObject {
                 self.dateFormat = .mmdd
             }
             
+            // Load appearance theme setting (default to system if not set)
+            if let savedAppearanceTheme = userDefaults.string(forKey: "AppearanceTheme"),
+               let appearanceTheme = AppearanceTheme(rawValue: savedAppearanceTheme) {
+                self.appearanceTheme = appearanceTheme
+            } else {
+                self.appearanceTheme = .system
+            }
+            
             // Load time presets (with defaults if not set)
             if let savedMorningTime = userDefaults.string(forKey: "MorningTime") {
                 self.morningTime = savedMorningTime
@@ -301,6 +325,9 @@ class ColorThemeManager: ObservableObject {
             // Save date format setting
             userDefaults.set(dateFormat.rawValue, forKey: "DateFormat")
             
+            // Save appearance theme setting
+            userDefaults.set(appearanceTheme.rawValue, forKey: "AppearanceTheme")
+            
             // Save time presets
             userDefaults.set(morningTime, forKey: "MorningTime")
             userDefaults.set(noonTime, forKey: "NoonTime")
@@ -338,6 +365,8 @@ class ColorThemeManager: ObservableObject {
         shortcutsEnabled = true
         timePeriodsEnabled = true
         voiceActivationEnabled = false
+        dateFormat = .mmdd
+        appearanceTheme = .system
         saveColors()
     }
     
@@ -389,6 +418,23 @@ class ColorThemeManager: ObservableObject {
         }
         
         return (hour: finalHour, minute: minute)
+    }
+    
+    // MARK: - Appearance Theme Management
+    
+    /// Apply the current appearance theme to the app
+    func applyCurrentTheme() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            switch self.appearanceTheme {
+            case .light:
+                NSApp.appearance = NSAppearance(named: .aqua)
+            case .dark:
+                NSApp.appearance = NSAppearance(named: .darkAqua)
+            case .system:
+                NSApp.appearance = nil // Follow system setting
+            }
+        }
     }
 }
 

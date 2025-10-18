@@ -1293,6 +1293,11 @@ struct GeneralSettingsView: View {
             
             Divider()
             
+            // Appearance Section
+            AppearanceSettingsSection(colorTheme: colorTheme)
+            
+            Divider()
+            
             // Developer Section
             VStack(alignment: .leading, spacing: 16) {
                 HStack {
@@ -1504,6 +1509,80 @@ struct GeneralSettingsView: View {
             sendTriggerWords.removeAll { $0 == word }
         }
         saveTriggerWords()
+    }
+}
+
+// MARK: - Appearance Theme Section
+
+struct AppearanceSettingsSection: View {
+    @ObservedObject var colorTheme: ColorThemeManager
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Image(systemName: "moon.stars")
+                    .foregroundColor(.indigo)
+                    .font(.title2)
+                Text("Appearance")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+            }
+            
+            VStack(alignment: .leading, spacing: 12) {
+                Text("App Theme")
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                
+                Text("Choose how QuickReminders appears")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                Picker("Theme", selection: $colorTheme.appearanceTheme) {
+                    ForEach(AppearanceTheme.allCases, id: \.self) { theme in
+                        Text(theme.displayName).tag(theme)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .onChange(of: colorTheme.appearanceTheme) {
+                    colorTheme.saveColors()
+                    applyAppearanceTheme(colorTheme.appearanceTheme)
+                }
+                
+                Text("• Light: Always uses light appearance\n• Dark: Always uses dark appearance\n• System: Follows your system appearance settings")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .padding(.top, 4)
+            }
+        }
+    }
+    
+    private func themeIcon(for theme: AppearanceTheme) -> String {
+        switch theme {
+        case .light: return "sun.max"
+        case .dark: return "moon"
+        case .system: return "gearshape"
+        }
+    }
+    
+    private func themeColor(for theme: AppearanceTheme) -> Color {
+        switch theme {
+        case .light: return .orange
+        case .dark: return .indigo
+        case .system: return .gray
+        }
+    }
+    
+    private func applyAppearanceTheme(_ theme: AppearanceTheme) {
+        DispatchQueue.main.async {
+            switch theme {
+            case .light:
+                NSApp.appearance = NSAppearance(named: .aqua)
+            case .dark:
+                NSApp.appearance = NSAppearance(named: .darkAqua)
+            case .system:
+                NSApp.appearance = nil // Follow system setting
+            }
+        }
     }
 }
 
