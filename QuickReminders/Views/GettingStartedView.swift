@@ -7,6 +7,7 @@
 
 import SwiftUI
 import EventKit
+import Speech
 import AVFoundation
 
 enum GettingStartedScreen {
