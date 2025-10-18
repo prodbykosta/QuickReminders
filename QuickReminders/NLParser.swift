@@ -315,10 +315,14 @@ class NLParser {
                 
                 if let weeksFromNow = weekday.weeksFromNow {
                     // "in X weeks friday" or "friday in X weeks"
-                    let futureDate = calendar.date(byAdding: .weekOfYear, value: weeksFromNow, to: now) ?? now
-                    var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: futureDate)
+                    // Go to the start of the target week (weeksFromNow weeks from this week)
+                    let startOfThisWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
+                    let targetWeekStart = calendar.date(byAdding: .weekOfYear, value: weeksFromNow, to: startOfThisWeek) ?? now
+                    
+                    // Find the target weekday within that week
+                    var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: targetWeekStart)
                     if daysUntilTarget < 0 { daysUntilTarget += 7 }
-                    startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: futureDate)
+                    startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: targetWeekStart)
                 } else if let monthsFromNow = weekday.monthsFromNow {
                     // "in X months friday" or "friday in X months"
                     let futureMonth = calendar.date(byAdding: .month, value: monthsFromNow, to: now) ?? now
@@ -410,19 +414,40 @@ class NLParser {
             }
             
             let targetWeekday = weekday.weekdayNumber
-            var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: now)
+            var startDate: Date?
             
-            if weekday.isNext {
-                // For "next monday", always go to next week's monday
-                if daysUntilTarget <= 0 { daysUntilTarget += 7 }
-                daysUntilTarget += 7  // Add another week to ensure it's "next"
+            if let weeksFromNow = weekday.weeksFromNow {
+                // "in X weeks friday" or "friday in X weeks"
+                let startOfThisWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
+                let targetWeekStart = calendar.date(byAdding: .weekOfYear, value: weeksFromNow, to: startOfThisWeek) ?? now
+                
+                var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: targetWeekStart)
+                if daysUntilTarget < 0 { daysUntilTarget += 7 }
+                startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: targetWeekStart)
+            } else if let monthsFromNow = weekday.monthsFromNow {
+                // "in X months friday" or "friday in X months"
+                let futureMonth = calendar.date(byAdding: .month, value: monthsFromNow, to: now) ?? now
+                var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: futureMonth)
+                if daysUntilTarget < 0 { daysUntilTarget += 7 }
+                startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: futureMonth)
             } else {
-                // For regular weekdays, go to next occurrence
-                if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                // Regular weekday logic
+                var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: now)
+                
+                if weekday.isNext {
+                    // For "next monday", always go to next week's monday
+                    if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                    daysUntilTarget += 7  // Add another week to ensure it's "next"
+                } else {
+                    // For regular weekdays, go to next occurrence
+                    if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                }
+                
+                startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: now)
             }
             
-            if let startDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: now) {
-                var components = calendar.dateComponents([.year, .month, .day], from: startDate)
+            if let start = startDate {
+                var components = calendar.dateComponents([.year, .month, .day], from: start)
                 components.hour = hour
                 components.minute = minute
                 let finalDate = calendar.date(from: components)
@@ -553,6 +578,27 @@ class NLParser {
                 } else if unitStr.contains("month") {
                     return (name, number, false, nil, amount)
                 }
+            }
+        }
+        
+        // Then check for "next week weekday" and "weekday next week" patterns
+        for (name, number) in weekdays {
+            // "next week tuesday" pattern
+            let nextWeekPattern = "\\bnext\\s+week\\s+\(NSRegularExpression.escapedPattern(for: name))\\b"
+            if let regex = try? NSRegularExpression(pattern: nextWeekPattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                let matchedPhrase = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedPhrase)
+                return (name, number, true, nil, nil)  // Treat same as "next tuesday"
+            }
+            
+            // "tuesday next week" pattern
+            let weekdayNextWeekPattern = "\(NSRegularExpression.escapedPattern(for: name))\\s+next\\s+week\\b"
+            if let regex = try? NSRegularExpression(pattern: weekdayNextWeekPattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                let matchedPhrase = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedPhrase)
+                return (name, number, true, nil, nil)  // Treat same as "next tuesday"
             }
         }
         
