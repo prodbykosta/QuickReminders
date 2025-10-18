@@ -523,7 +523,7 @@ class NLParser {
         let timePatterns = [
             "\\b(\\d{1,2}):(\\d{2})\\s*(am|pm)?",           // 10:30am, 10:30
             "\\b(\\d{1,2})\\s*(am|pm)",                    // 10am, 10pm
-            "(?<!\\d)(\\d{1,2})(?!:)(?![/.]|st|nd|rd|th|\\s+(days?|weeks?|months?|of))"  // 10 (standalone number, not ordinal or followed by days/weeks/months/of)
+            "(?<!\\d)(\\d{1,2})(?!:)(?![/.]|st|nd|rd|th|\\s+(days?|weeks?|months?|of|am|pm))"  // 10 (standalone number, not ordinal or followed by days/weeks/months/of/am/pm)
         ]
         
         for pattern in timePatterns {
