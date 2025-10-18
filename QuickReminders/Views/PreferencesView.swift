@@ -57,7 +57,7 @@ struct PreferencesView: View {
     private func destinationView(for page: SettingsPage) -> some View {
         switch page {
         case .general:
-            GeneralSettingsView(reminderManager: reminderManager, colorTheme: colorTheme, speechManager: speechManager)
+            GeneralSettingsView(reminderManager: reminderManager, colorTheme: colorTheme, speechManager: speechManager, hotKeyManager: hotKeyManager)
         case .hotkey:
             HotkeySettingsView(hotKeyManager: hotKeyManager)
         case .colors:

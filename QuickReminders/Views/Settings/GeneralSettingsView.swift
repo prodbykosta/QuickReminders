@@ -14,6 +14,7 @@ struct GeneralSettingsView: View {
     @ObservedObject var reminderManager: ReminderManager
     @ObservedObject var colorTheme: ColorThemeManager
     @ObservedObject var speechManager: SpeechManager
+    @ObservedObject var hotKeyManager: HotKeyManager
     @State private var sendTriggerWords: [String] = []
     @State private var newTriggerWord = ""
     
@@ -166,7 +167,7 @@ struct GeneralSettingsView: View {
                                     Image(systemName: "info.circle")
                                         .foregroundColor(.blue)
                                         .font(.system(size: 14))
-                                    Text("Voice activation uses the same hotkey as opening the app (currently: ⌃⇧Z)")
+                                    Text("Voice activation uses the same hotkey as opening the app (currently: \(hotKeyManager.currentHotKey))")
                                         .font(.system(size: 13))
                                         .foregroundColor(.secondary)
                                 }
