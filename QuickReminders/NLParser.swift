@@ -686,7 +686,7 @@ class NLParser {
             // Order matters: longer words first to avoid "noon" matching inside "afternoon"
             let presetTimes = ["afternoon", "morning", "evening", "night", "noon"]
             for preset in presetTimes {
-                if let timeContext = detectTimeContext(preset, in: text.lowercased()) {
+                if detectTimeContext(preset, in: text.lowercased()) {
                     detectedPhrases.append(preset)
                     if let timeComponents = colorTheme?.getTimeComponents(for: preset) {
                         return timeComponents
