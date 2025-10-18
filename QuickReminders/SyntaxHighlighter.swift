@@ -87,6 +87,15 @@ class SyntaxHighlighter {
              NSColor.systemYellow),
             ("\\b\\d{1,2}[./]\\d{1,2}\\.?\\b", NSColor.systemYellow), // 6.10, 6/10, 06/10
             
+            // Month names (YELLOW)
+            ("\\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\b", NSColor.systemYellow),
+            
+            // Day numbers with ordinal suffixes after months (RED)
+            ("(?<=\\b(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\s+)\\d{1,2}(?:st|nd|rd|th)?\\b", NSColor.systemRed),
+            
+            // Day numbers with ordinal suffixes before "of month" (RED)
+            ("\\b\\d{1,2}(?:st|nd|rd|th)?(?=\\s+of\\s+(?:january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec|this\\s+month|next\\s+month))\\b", NSColor.systemRed),
+            
             // Time patterns (RED)
             ("(?<=\\bat\\s)\\d{1,2}\\b", NSColor.systemRed), // numbers after "at" only
             ("(?<=\\btomorrow\\s)\\d{1,2}\\b", NSColor.systemRed), // numbers after "tomorrow"

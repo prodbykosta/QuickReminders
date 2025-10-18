@@ -264,7 +264,10 @@ class NLParser {
         // 4. Detect date patterns (10.23, 12/15, etc.)
         let datePatternInfo = detectDatePattern(in: text, detectedPhrases: &detectedPhrases)
         
-        // 5. Detect relative dates (tomorrow, today)
+        // 5. Detect natural language month patterns (October 15th, 15th of Oct, etc.)
+        let monthDayInfo = detectMonthDayPattern(in: text, detectedPhrases: &detectedPhrases)
+        
+        // 6. Detect relative dates (tomorrow, today)
         let relativeDateInfo = detectRelativeDate(in: text, detectedPhrases: &detectedPhrases)
         
         // 6. Combine the information to create a date
@@ -286,6 +289,19 @@ class NLParser {
                 components.year = calendar.component(.year, from: now)
                 components.month = datePattern.month
                 components.day = datePattern.day
+                components.hour = hour
+                components.minute = minute
+                
+                if let targetDate = calendar.date(from: components) {
+                    // If the date is in the past, move to next year
+                    startDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                }
+            } else if let monthDay = monthDayInfo {
+                // Use natural language month pattern (October 15th, 15th of Oct, etc.)
+                var components = DateComponents()
+                components.year = calendar.component(.year, from: now)
+                components.month = monthDay.month
+                components.day = monthDay.day
                 components.hour = hour
                 components.minute = minute
                 
@@ -334,6 +350,25 @@ class NLParser {
             components.year = calendar.component(.year, from: now)
             components.month = datePattern.month
             components.day = datePattern.day
+            components.hour = hour
+            components.minute = minute
+            
+            if let targetDate = calendar.date(from: components) {
+                let finalDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                return (finalDate, false, nil, nil, nil, detectedPhrases)
+            }
+        } else if let monthDay = monthDayInfo {
+            // Handle natural language month patterns without recurrence
+            var hour = 9, minute = 0
+            if let time = timeInfo {
+                hour = time.hour
+                minute = time.minute
+            }
+            
+            var components = DateComponents()
+            components.year = calendar.component(.year, from: now)
+            components.month = monthDay.month
+            components.day = monthDay.day
             components.hour = hour
             components.minute = minute
             
@@ -488,7 +523,7 @@ class NLParser {
         let timePatterns = [
             "\\b(\\d{1,2}):(\\d{2})\\s*(am|pm)?",           // 10:30am, 10:30
             "\\b(\\d{1,2})\\s*(am|pm)",                    // 10am, 10pm
-            "\\b(\\d{1,2})(?!:)(?![/.]|\\s+(days?|weeks?|months?))"  // 10 (standalone number, not followed by days/weeks/months)
+            "(?<!\\d)(\\d{1,2})(?!:)(?![/.]|st|nd|rd|th|\\s+(days?|weeks?|months?|of))"  // 10 (standalone number, not ordinal or followed by days/weeks/months/of)
         ]
         
         for pattern in timePatterns {
@@ -616,59 +651,289 @@ class NLParser {
         return nil
     }
     
-    // Extract title by removing only the detected scheduling phrases
-    private func extractSmartTitle(from text: String, detectedPhrases: [String]) -> String {
-        var cleanedText = text
+    private func detectMonthDayPattern(in text: String, detectedPhrases: inout [String]) -> (month: Int, day: Int)? {
+        // Month names mapping
+        let monthMap: [String: Int] = [
+            "january": 1, "jan": 1,
+            "february": 2, "feb": 2,
+            "march": 3, "mar": 3,
+            "april": 4, "apr": 4,
+            "may": 5,
+            "june": 6, "jun": 6,
+            "july": 7, "jul": 7,
+            "august": 8, "aug": 8,
+            "september": 9, "sep": 9, "sept": 9,
+            "october": 10, "oct": 10,
+            "november": 11, "nov": 11,
+            "december": 12, "dec": 12
+        ]
         
-        // Remove each detected phrase with surrounding context
-        for phrase in detectedPhrases {
-            // Remove the phrase with optional prepositions before/after
-            // Use word boundaries for more accurate matching
-            let escapedPhrase = NSRegularExpression.escapedPattern(for: phrase)
-            let patterns = [
-                "\\s+in\\s+\(escapedPhrase)\\b",                    // " in 3 days"
-                "\\s+on\\s+\(escapedPhrase)\\b",                    // " on monday" 
-                "\\s+at\\s+\(escapedPhrase)\\b",                    // " at 10am"
-                "\\s+\(escapedPhrase)$",                            // " td" at end
-                "\\s+\(escapedPhrase)\\b",                          // " every week", " 9:23"
-                "\\b\(escapedPhrase)\\s+",                          // "9:23 " at start or middle
-                "\\b\(escapedPhrase)$",                             // "td" at end without space
-                "^in\\s+\(escapedPhrase)\\b",                       // "in 3 days" at start
-                "^on\\s+\(escapedPhrase)\\b",                       // "on monday" at start
-                "^at\\s+\(escapedPhrase)\\b",                       // "at 10am" at start  
-                "^\(escapedPhrase)\\b",                              // "every week" at start
-                "^\(escapedPhrase)\\s+",                             // "9:23 " at start with space
-            ]
-            
-            for pattern in patterns {
-                cleanedText = cleanedText.replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+        // Pattern 1: "October 15th", "on October 15", "Oct 23rd"
+        let monthDayPatterns = [
+            "\\b(on\\s+)?(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b"
+        ]
+        
+        for pattern in monthDayPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                
+                let matchedText = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedText)
+                
+                let monthName = String(text[Range(match.range(at: 2), in: text)!]).lowercased()
+                let dayValue = Int(String(text[Range(match.range(at: 3), in: text)!])) ?? 0
+                
+                if let month = monthMap[monthName], dayValue >= 1 && dayValue <= 31 {
+                    return (month: month, day: dayValue)
+                }
             }
         }
         
-        // Clean up extra spaces, leftover prepositions, and common scheduling words
-        cleanedText = cleanedText.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
-        cleanedText = cleanedText.replacingOccurrences(of: "\\s+(in|on|at)\\s*$", with: "", options: .regularExpression)
-        cleanedText = cleanedText.replacingOccurrences(of: "^(in|on|at)\\s+", with: "", options: .regularExpression)
-        
-        // Remove any remaining scheduling words that might have been missed
-        let remainingSchedulingWords = ["td", "tm", "today", "tomorrow", "every", "day", "week", "month"]
-        for word in remainingSchedulingWords {
-            cleanedText = cleanedText.replacingOccurrences(of: "\\s+\(word)\\s*$", with: "", options: [.regularExpression, .caseInsensitive])
-            cleanedText = cleanedText.replacingOccurrences(of: "^\\s*\(word)\\s+", with: "", options: [.regularExpression, .caseInsensitive])
-        }
-        
-        // Remove any remaining time patterns like "9:23", "10am", etc.
-        let timePatterns = [
-            "\\s+\\d{1,2}:\\d{2}\\s*(am|pm)?\\s*$",  // " 9:23am" at end
-            "^\\s*\\d{1,2}:\\d{2}\\s*(am|pm)?\\s+",  // "9:23am " at start
-            "\\s+\\d{1,2}\\s*(am|pm)\\s*$",         // " 9am" at end
-            "^\\s*\\d{1,2}\\s*(am|pm)\\s+"          // "9am " at start
+        // Pattern 2: "15th of October", "on 23rd of Oct", "15 of October"
+        let dayMonthPatterns = [
+            "\\b(on\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+of\\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\b"
         ]
-        for pattern in timePatterns {
-            cleanedText = cleanedText.replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+        
+        for pattern in dayMonthPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                
+                let matchedText = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedText)
+                
+                let dayValue = Int(String(text[Range(match.range(at: 2), in: text)!])) ?? 0
+                let monthName = String(text[Range(match.range(at: 3), in: text)!]).lowercased()
+                
+                if let month = monthMap[monthName], dayValue >= 1 && dayValue <= 31 {
+                    return (month: month, day: dayValue)
+                }
+            }
         }
+        
+        // Pattern 3: "15th of this month", "on 23rd of next month"
+        let relativeMonthPatterns = [
+            "\\b(on\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+of\\s+(this|next)\\s+month\\b"
+        ]
+        
+        for pattern in relativeMonthPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                
+                let matchedText = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedText)
+                
+                let dayValue = Int(String(text[Range(match.range(at: 2), in: text)!])) ?? 0
+                let monthContext = String(text[Range(match.range(at: 3), in: text)!]).lowercased()
+                
+                if dayValue >= 1 && dayValue <= 31 {
+                    let calendar = Calendar.current
+                    let currentMonth = calendar.component(.month, from: Date())
+                    
+                    let targetMonth = monthContext == "this" ? currentMonth : (currentMonth % 12) + 1
+                    return (month: targetMonth, day: dayValue)
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    // Extract title by intelligently removing scheduling phrases based on context
+    private func extractSmartTitle(from text: String, detectedPhrases: [String]) -> String {
+        let lowercaseText = text.lowercased()
+        
+        // Categorize detected phrases
+        let schedulingPhrases = categorizeDetectedPhrases(detectedPhrases, in: lowercaseText)
+        
+        // Apply smart removal logic
+        let phrasesToRemove = determinePhrasesToRemove(schedulingPhrases, originalText: text)
+        
+        var cleanedText = text
+        
+        // Remove the determined phrases
+        for phrase in phrasesToRemove {
+            cleanedText = removePhrase(phrase, from: cleanedText)
+        }
+        
+        // Final cleanup
+        cleanedText = finalCleanup(cleanedText)
         
         return cleanedText.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    
+    private func categorizeDetectedPhrases(_ phrases: [String], in text: String) -> SchedulingPhrases {
+        var schedulingPhrases = SchedulingPhrases()
+        
+        let monthNames = ["january", "february", "march", "april", "may", "june", 
+                         "july", "august", "september", "october", "november", "december",
+                         "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec"]
+        
+        for phrase in phrases {
+            let lowercasePhrase = phrase.lowercased()
+            
+            // Categorize each phrase
+            if lowercasePhrase.contains("every") || lowercasePhrase.contains("daily") || lowercasePhrase.contains("weekly") || lowercasePhrase.contains("monthly") {
+                schedulingPhrases.recurrence.append(phrase)
+            } else if monthNames.contains(where: { lowercasePhrase.contains($0) }) {
+                schedulingPhrases.monthReferences.append(phrase)
+            } else if lowercasePhrase.contains("monday") || lowercasePhrase.contains("tuesday") || lowercasePhrase.contains("wednesday") || 
+                     lowercasePhrase.contains("thursday") || lowercasePhrase.contains("friday") || lowercasePhrase.contains("saturday") || lowercasePhrase.contains("sunday") ||
+                     lowercasePhrase.contains("mon") || lowercasePhrase.contains("tue") || lowercasePhrase.contains("wed") || 
+                     lowercasePhrase.contains("thu") || lowercasePhrase.contains("fri") || lowercasePhrase.contains("sat") || lowercasePhrase.contains("sun") {
+                schedulingPhrases.weekdays.append(phrase)
+            } else if lowercasePhrase.contains("today") || lowercasePhrase.contains("tomorrow") || lowercasePhrase.contains("td") || lowercasePhrase.contains("tm") {
+                schedulingPhrases.relativeDates.append(phrase)
+            } else if lowercasePhrase.contains(":") || lowercasePhrase.contains("am") || lowercasePhrase.contains("pm") || 
+                     lowercasePhrase.contains("morning") || lowercasePhrase.contains("afternoon") || lowercasePhrase.contains("evening") {
+                schedulingPhrases.times.append(phrase)
+            } else if lowercasePhrase.contains("/") || lowercasePhrase.contains(".") {
+                schedulingPhrases.numericDates.append(phrase)
+            } else {
+                schedulingPhrases.other.append(phrase)
+            }
+        }
+        
+        return schedulingPhrases
+    }
+    
+    private func determinePhrasesToRemove(_ schedulingPhrases: SchedulingPhrases, originalText: String) -> [String] {
+        var phrasesToRemove: [String] = []
+        let lowercaseText = originalText.lowercased()
+        
+        // Always remove recurrence phrases
+        phrasesToRemove.append(contentsOf: schedulingPhrases.recurrence)
+        
+        // Always remove times (they're never part of task description)
+        phrasesToRemove.append(contentsOf: schedulingPhrases.times)
+        
+        // Always remove numeric dates (10/15, 12.23, etc.)
+        phrasesToRemove.append(contentsOf: schedulingPhrases.numericDates)
+        
+        // Always remove relative dates (today, tomorrow, td, tm)
+        phrasesToRemove.append(contentsOf: schedulingPhrases.relativeDates)
+        
+        // Smart logic for month references
+        if !schedulingPhrases.monthReferences.isEmpty {
+            let monthCount = countMonthOccurrences(in: lowercaseText)
+            let totalSchedulingPhrases = schedulingPhrases.monthReferences.count + schedulingPhrases.weekdays.count + 
+                                       schedulingPhrases.times.count + schedulingPhrases.numericDates.count + 
+                                       schedulingPhrases.relativeDates.count + schedulingPhrases.recurrence.count
+            
+            if totalSchedulingPhrases == 1 {
+                // Only one scheduling phrase total - remove it completely
+                phrasesToRemove.append(contentsOf: schedulingPhrases.monthReferences)
+            } else if monthCount > 1 {
+                // Month appears multiple times - remove the more specific scheduling occurrence
+                let schedulingMonthPhrase = findMostSpecificMonthPhrase(schedulingPhrases.monthReferences)
+                if let specificPhrase = schedulingMonthPhrase {
+                    phrasesToRemove.append(specificPhrase)
+                }
+            } else {
+                // Month appears only once and there are other scheduling elements
+                // Keep month in title if it has other scheduling context
+                if !schedulingPhrases.weekdays.isEmpty || !schedulingPhrases.recurrence.isEmpty {
+                    // Don't remove month, it's likely part of description
+                } else {
+                    // Remove month as it's the only scheduling info
+                    phrasesToRemove.append(contentsOf: schedulingPhrases.monthReferences)
+                }
+            }
+        }
+        
+        // Handle weekdays - remove if there are other date specifications
+        if !schedulingPhrases.weekdays.isEmpty {
+            if !schedulingPhrases.monthReferences.isEmpty || !schedulingPhrases.numericDates.isEmpty || !schedulingPhrases.relativeDates.isEmpty || !schedulingPhrases.times.isEmpty {
+                phrasesToRemove.append(contentsOf: schedulingPhrases.weekdays)
+            }
+        }
+        
+        // Add other phrases
+        phrasesToRemove.append(contentsOf: schedulingPhrases.other)
+        
+        return phrasesToRemove
+    }
+    
+    private func countMonthOccurrences(in text: String) -> Int {
+        let monthNames = ["january", "february", "march", "april", "may", "june", 
+                         "july", "august", "september", "october", "november", "december",
+                         "jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "sept", "oct", "nov", "dec"]
+        
+        var count = 0
+        for month in monthNames {
+            let matches = text.components(separatedBy: month).count - 1
+            count += matches
+        }
+        return count
+    }
+    
+    private func findMostSpecificMonthPhrase(_ monthPhrases: [String]) -> String? {
+        // Return the phrase that contains more specific information (like day numbers)
+        for phrase in monthPhrases {
+            if phrase.contains(where: { $0.isNumber }) {
+                return phrase
+            }
+        }
+        return monthPhrases.first
+    }
+    
+    private func removePhrase(_ phrase: String, from text: String) -> String {
+        let escapedPhrase = NSRegularExpression.escapedPattern(for: phrase)
+        let patterns = [
+            "\\s+in\\s+the\\s+\(escapedPhrase)\\b",             // " in the phrase"
+            "\\s+on\\s+the\\s+\(escapedPhrase)\\b",             // " on the phrase" 
+            "\\s+at\\s+the\\s+\(escapedPhrase)\\b",             // " at the phrase"
+            "\\s+in\\s+\(escapedPhrase)\\b",                    // " in phrase"
+            "\\s+on\\s+\(escapedPhrase)\\b",                    // " on phrase" 
+            "\\s+at\\s+\(escapedPhrase)\\b",                    // " at phrase"
+            "\\s+the\\s+\(escapedPhrase)\\b",                   // " the phrase"
+            "\\s+\(escapedPhrase)$",                            // " phrase" at end
+            "\\s+\(escapedPhrase)\\b",                          // " phrase"
+            "\\b\(escapedPhrase)\\s+",                          // "phrase " at start or middle
+            "\\b\(escapedPhrase)$",                             // "phrase" at end without space
+            "^in\\s+the\\s+\(escapedPhrase)\\b",                // "in the phrase" at start
+            "^on\\s+the\\s+\(escapedPhrase)\\b",                // "on the phrase" at start
+            "^at\\s+the\\s+\(escapedPhrase)\\b",                // "at the phrase" at start
+            "^in\\s+\(escapedPhrase)\\b",                       // "in phrase" at start
+            "^on\\s+\(escapedPhrase)\\b",                       // "on phrase" at start
+            "^at\\s+\(escapedPhrase)\\b",                       // "at phrase" at start  
+            "^the\\s+\(escapedPhrase)\\b",                      // "the phrase" at start
+            "^\(escapedPhrase)\\b",                              // "phrase" at start
+            "^\(escapedPhrase)\\s+",                             // "phrase " at start with space
+        ]
+        
+        var cleanedText = text
+        for pattern in patterns {
+            cleanedText = cleanedText.replacingOccurrences(of: pattern, with: "", options: [.regularExpression, .caseInsensitive])
+        }
+        return cleanedText
+    }
+    
+    private func finalCleanup(_ text: String) -> String {
+        var cleanedText = text
+        
+        // Clean up extra spaces
+        cleanedText = cleanedText.replacingOccurrences(of: "\\s+", with: " ", options: .regularExpression)
+        
+        // Remove leftover prepositions and articles at start/end
+        cleanedText = cleanedText.replacingOccurrences(of: "\\s+(in|on|at|of|the|a|an)\\s*$", with: "", options: .regularExpression)
+        cleanedText = cleanedText.replacingOccurrences(of: "^(in|on|at|of|the|a|an)\\s+", with: "", options: .regularExpression)
+        
+        // Remove standalone articles that might be left over
+        cleanedText = cleanedText.replacingOccurrences(of: "\\s+the\\s*$", with: "", options: .regularExpression)
+        cleanedText = cleanedText.replacingOccurrences(of: "^the\\s+", with: "", options: .regularExpression)
+        
+        return cleanedText
+    }
+    
+    // Helper struct to organize detected phrases
+    private struct SchedulingPhrases {
+        var monthReferences: [String] = []
+        var weekdays: [String] = []
+        var relativeDates: [String] = []
+        var times: [String] = []
+        var numericDates: [String] = []
+        var recurrence: [String] = []
+        var other: [String] = []
     }
     
     private func validateInput(_ text: String) -> (isValid: Bool, errorMessage: String?) {
