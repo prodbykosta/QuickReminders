@@ -313,8 +313,8 @@ class NLParser {
                 // Calculate target date based on weekday info
                 let targetWeekday = weekday.weekdayNumber
                 
-                if let weeksFromNow = weekday.weeksFromNow {
-                    // "in X weeks friday" or "friday in X weeks"
+                if let weeksFromNow = weekday.weeksFromNow, weeksFromNow != -999 {
+                    // "in X weeks friday" or "friday in X weeks" (but not "this" patterns)
                     // Go to the start of the target week (weeksFromNow weeks from this week)
                     let startOfThisWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
                     let targetWeekStart = calendar.date(byAdding: .weekOfYear, value: weeksFromNow, to: startOfThisWeek) ?? now
@@ -337,6 +337,24 @@ class NLParser {
                         // For "next monday", always go to next week's monday
                         if daysUntilTarget <= 0 { daysUntilTarget += 7 }
                         daysUntilTarget += 7  // Add another week to ensure it's "next"
+                    } else if weekday.weeksFromNow == nil && weekday.monthsFromNow == nil {
+                        // Check if this is a "this weekday" pattern from phrase detection
+                        if detectedPhrases.first(where: { $0.lowercased().contains("this") }) != nil {
+                            // "this weekday" logic - same as regular weekday but stays in current week if possible
+                            let currentWeekday = calendar.component(.weekday, from: now)
+                            
+                            // If target weekday is today or later this week, use this week
+                            if targetWeekday >= currentWeekday {
+                                // Target is today or later this week - use this week
+                                if daysUntilTarget < 0 { daysUntilTarget += 7 } // Fix negative days
+                            } else {
+                                // Target weekday already passed this week, go to next week (same as regular weekday)
+                                if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                            }
+                        } else {
+                            // For regular weekdays, go to next occurrence
+                            if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                        }
                     } else {
                         // For regular weekdays, go to next occurrence
                         if daysUntilTarget <= 0 { daysUntilTarget += 7 }
@@ -416,8 +434,8 @@ class NLParser {
             let targetWeekday = weekday.weekdayNumber
             var startDate: Date?
             
-            if let weeksFromNow = weekday.weeksFromNow {
-                // "in X weeks friday" or "friday in X weeks"
+            if let weeksFromNow = weekday.weeksFromNow, weeksFromNow != -999 {
+                // "in X weeks friday" or "friday in X weeks" (but not "this" patterns)
                 let startOfThisWeek = calendar.dateInterval(of: .weekOfYear, for: now)?.start ?? now
                 let targetWeekStart = calendar.date(byAdding: .weekOfYear, value: weeksFromNow, to: startOfThisWeek) ?? now
                 
@@ -438,6 +456,24 @@ class NLParser {
                     // For "next monday", always go to next week's monday
                     if daysUntilTarget <= 0 { daysUntilTarget += 7 }
                     daysUntilTarget += 7  // Add another week to ensure it's "next"
+                } else if weekday.weeksFromNow == nil && weekday.monthsFromNow == nil {
+                    // Check if this is a "this weekday" pattern from phrase detection
+                    if detectedPhrases.first(where: { $0.lowercased().contains("this") }) != nil {
+                        // "this weekday" logic - same as regular weekday but stays in current week if possible
+                        let currentWeekday = calendar.component(.weekday, from: now)
+                        
+                        // If target weekday is today or later this week, use this week
+                        if targetWeekday >= currentWeekday {
+                            // Target is today or later this week - use this week
+                            if daysUntilTarget < 0 { daysUntilTarget += 7 } // Fix negative days
+                        } else {
+                            // Target weekday already passed this week, go to next week (same as regular weekday)
+                            if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                        }
+                    } else {
+                        // For regular weekdays, go to next occurrence
+                        if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                    }
                 } else {
                     // For regular weekdays, go to next occurrence
                     if daysUntilTarget <= 0 { daysUntilTarget += 7 }
@@ -581,7 +617,58 @@ class NLParser {
             }
         }
         
-        // Then check for "next week weekday" and "weekday next week" patterns
+        // FIRST check for "weekday this week" patterns (most specific)
+        for (name, number) in weekdays {
+            // "tuesday this week" pattern
+            let weekdayThisWeekPattern = "\\b\(NSRegularExpression.escapedPattern(for: name))\\s+this\\s+week\\b"
+            if let regex = try? NSRegularExpression(pattern: weekdayThisWeekPattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                let matchedPhrase = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedPhrase)
+                return (name, number, false, nil, nil)  // Use "this" logic like "next" patterns
+            }
+            
+            // "on tuesday this week" pattern
+            let onWeekdayThisWeekPattern = "\\bon\\s+\(NSRegularExpression.escapedPattern(for: name))\\s+this\\s+week\\b"
+            if let regex = try? NSRegularExpression(pattern: onWeekdayThisWeekPattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                let matchedPhrase = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedPhrase)
+                return (name, number, false, nil, nil)  // Use "this" logic like "next" patterns
+            }
+        }
+        
+        // Then check for "this week weekday" and "weekday next week" patterns
+        for (name, number) in weekdays {
+            // "this week tuesday" pattern
+            let thisWeekPattern = "\\bthis\\s+week\\s+\(NSRegularExpression.escapedPattern(for: name))\\b"
+            if let regex = try? NSRegularExpression(pattern: thisWeekPattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                let matchedPhrase = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedPhrase)
+                return (name, number, false, nil, nil)  // Use "this" logic like "next" patterns
+            }
+            
+            // "on this week tuesday" pattern  
+            let onThisWeekPattern = "\\bon\\s+this\\s+week\\s+\(NSRegularExpression.escapedPattern(for: name))\\b"
+            if let regex = try? NSRegularExpression(pattern: onThisWeekPattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                let matchedPhrase = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedPhrase)
+                return (name, number, false, nil, nil)  // Use "this" logic like "next" patterns
+            }
+            
+            // "tuesday next week" pattern
+            let weekdayNextWeekPattern = "\\b\(NSRegularExpression.escapedPattern(for: name))\\s+next\\s+week\\b"
+            if let regex = try? NSRegularExpression(pattern: weekdayNextWeekPattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                let matchedPhrase = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedPhrase)
+                return (name, number, true, nil, nil)  // Treat same as "next tuesday"
+            }
+        }
+        
+        // Then check for "next week weekday" patterns
         for (name, number) in weekdays {
             // "next week tuesday" pattern
             let nextWeekPattern = "\\bnext\\s+week\\s+\(NSRegularExpression.escapedPattern(for: name))\\b"
@@ -591,14 +678,18 @@ class NLParser {
                 detectedPhrases.append(matchedPhrase)
                 return (name, number, true, nil, nil)  // Treat same as "next tuesday"
             }
-            
-            // "tuesday next week" pattern
-            let weekdayNextWeekPattern = "\(NSRegularExpression.escapedPattern(for: name))\\s+next\\s+week\\b"
-            if let regex = try? NSRegularExpression(pattern: weekdayNextWeekPattern, options: .caseInsensitive),
+        }
+        
+        // Then check for "this weekday" patterns
+        for (name, number) in weekdays {
+            let thisPattern = "\\bthis\\s+\(NSRegularExpression.escapedPattern(for: name))\\b"
+            if let regex = try? NSRegularExpression(pattern: thisPattern, options: .caseInsensitive),
                let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
                 let matchedPhrase = String(text[Range(match.range, in: text)!])
                 detectedPhrases.append(matchedPhrase)
-                return (name, number, true, nil, nil)  // Treat same as "next tuesday"
+                // For "this weekday", use special logic - if we're Mon-Fri and target is Fri+, use this week
+                // If we're Sat-Sun, use next week
+                return (name, number, false, nil, nil)  // Use "this" logic like "next" patterns
             }
         }
         
@@ -613,11 +704,28 @@ class NLParser {
             }
         }
         
-        // Then check for regular weekday patterns
+        // Then check for regular weekday patterns (but not if they're part of "this week" or "next week" phrases)
         for (name, number) in weekdays {
             let pattern = "\\b\(NSRegularExpression.escapedPattern(for: name))\\b"
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-               regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) != nil {
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                
+                // Check if this weekday is part of a "this week" or "next week" phrase that we missed
+                let matchRange = match.range
+                let beforeMatch = (text as NSString).substring(to: matchRange.location).lowercased()
+                let afterMatch = (text as NSString).substring(from: matchRange.location + matchRange.length).lowercased()
+                
+                // Skip if it's part of "this week" or "next week" phrase
+                if (beforeMatch.hasSuffix("this ") && afterMatch.hasPrefix(" week")) ||
+                   (beforeMatch.hasSuffix("next ") && afterMatch.hasPrefix(" week")) ||
+                   beforeMatch.hasSuffix("this week ") ||
+                   afterMatch.hasPrefix(" this week") ||
+                   afterMatch.hasPrefix(" next week") ||
+                   (afterMatch.hasPrefix(" this") && afterMatch.contains(" week")) ||
+                   (afterMatch.hasPrefix(" next") && afterMatch.contains(" week")) {
+                    continue // Skip this match, let the specific patterns handle it
+                }
+                
                 detectedPhrases.append(name)
                 return (name, number, false, nil, nil)
             }
@@ -1029,13 +1137,15 @@ class NLParser {
         if !schedulingPhrases.weekdays.isEmpty {
             for phrase in schedulingPhrases.weekdays {
                 let phraseInContext = findPhraseInContext(phrase, in: lowercaseText)
-                let isSchedulingContext = phraseInContext.contains("on ") || 
-                                        phraseInContext.contains("this ") || 
+                let isSchedulingContext = phraseInContext.contains("on ") ||
+                                        phraseInContext.contains("this ") ||
                                         phrase.contains("next ") ||
+                                        phrase.lowercased().contains("this week") ||
+                                        phrase.lowercased().contains("next week") ||
                                         isWeekdayAtEndForScheduling(phrase, in: lowercaseText) ||
-                                        (!schedulingPhrases.monthReferences.isEmpty || 
-                                         !schedulingPhrases.numericDates.isEmpty || 
-                                         !schedulingPhrases.relativeDates.isEmpty || 
+                                        (!schedulingPhrases.monthReferences.isEmpty ||
+                                         !schedulingPhrases.numericDates.isEmpty ||
+                                         !schedulingPhrases.relativeDates.isEmpty ||
                                          !schedulingPhrases.times.isEmpty)
                 
                 // Don't remove if weekday is at the very beginning and part of description
