@@ -1,8 +1,6 @@
 # QuickReminders: The Fastest Way to Create Reminders ⚡
 
-Transform how you capture tasks and reminders with QuickReminders - the fastest, most intuitive reminder app for macOS! 🚀 
-
-Simply type or speak naturally, and watch your thoughts become perfectly organized reminders in Apple's Reminders app.
+Transform how you capture tasks and reminders with QuickReminders - the fastest, most intuitive reminder app for macOS! 🚀 Simply type or speak naturally, and watch your thoughts become perfectly organized reminders in Apple's Reminders app.
 
 
 
