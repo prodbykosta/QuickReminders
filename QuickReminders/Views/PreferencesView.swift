@@ -5,8 +5,10 @@
 //  Created by QuickReminders on 04.10.2025.
 //
 
+#if os(macOS)
 import SwiftUI
 import EventKit
+import AppKit
 
 enum SettingsPage: String, CaseIterable {
     case general = "General"
@@ -81,3 +83,4 @@ struct PreferencesView: View {
         // All settings saved
     }
 }
+#endif

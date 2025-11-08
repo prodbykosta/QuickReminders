@@ -8,6 +8,8 @@
 import SwiftUI
 import EventKit
 
+#if os(macOS)
+
 struct DuplicateRemindersView: View {
     let reminders: [EKReminder]
     let onSelect: (EKReminder) -> Void
@@ -33,3 +35,5 @@ struct DuplicateRemindersView: View {
         .cornerRadius(12)
     }
 }
+
+#endif

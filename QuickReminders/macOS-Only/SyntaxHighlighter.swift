@@ -5,6 +5,7 @@
 //  Created by QuickReminders on 04.10.2025.
 //
 
+#if os(macOS)
 import SwiftUI
 import AppKit
 
@@ -241,4 +242,4 @@ class HighlightedTextField: NSTextField {
         timePeriodsEnabled = enabled
         applyHighlighting()
     }
-}
+}#endif

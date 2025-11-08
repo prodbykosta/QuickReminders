@@ -8,6 +8,8 @@
 import SwiftUI
 import EventKit
 
+#if os(macOS)
+
 struct RemindersDisplayView: View {
     let reminders: [EKReminder]
     let onDismiss: () -> Void
@@ -30,3 +32,5 @@ struct RemindersDisplayView: View {
         .cornerRadius(12)
     }
 }
+
+#endif

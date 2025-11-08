@@ -5,10 +5,12 @@
 //  Created by QuickReminders on 04.10.2025.
 //
 
+#if os(macOS)
 import SwiftUI
 import EventKit
 import Speech
 import AVFoundation
+import AppKit
 
 struct GeneralSettingsView: View {
     @ObservedObject var reminderManager: ReminderManager
@@ -760,7 +762,7 @@ struct GeneralSettingsView: View {
                                         Text("Commands")
                                             .foregroundColor(.blue)
                                             .font(.system(size: 13, weight: .medium))
-                                        Text("(mv, rm, move, remove, delete, reschedule)")
+                                        Text("(mv, rm, ls)")
                                             .font(.system(size: 12))
                                             .foregroundColor(.secondary)
                                     }
@@ -778,7 +780,7 @@ struct GeneralSettingsView: View {
                                         Text("Dates")
                                             .foregroundColor(.yellow)
                                             .font(.system(size: 13, weight: .medium))
-                                        Text("(today, tomorrow, mon, tue, 6.10, 6/10)")
+                                        Text("(tm, td, mon, tue, wed, thu, fri, sat, sun)")
                                             .font(.system(size: 12))
                                             .foregroundColor(.secondary)
                                     }
@@ -915,6 +917,40 @@ struct GeneralSettingsView: View {
                             .foregroundColor(.secondary)
                     }
                     .padding(.top, 4)
+
+                    Divider().padding(.vertical, 8)
+
+                    HStack {
+                        Toggle("Enable Shortcuts", isOn: $colorTheme.shortcutsEnabled)
+                            .toggleStyle(SwitchToggleStyle(tint: .blue))
+                            .onChange(of: colorTheme.shortcutsEnabled) {
+                                colorTheme.saveColors()
+                            }
+                    }
+
+                    if colorTheme.shortcutsEnabled {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Available shortcuts:")
+                                .font(.system(size: 14, weight: .medium))
+                                .foregroundColor(.secondary)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("mv, rm, ls, tm, td, mon, tue, wed, thu, fri, sat, sun")
+                                    .foregroundColor(.blue)
+                                    .font(.system(size: 13, weight: .medium))
+                            }
+                            .padding(.leading, 8)
+                        }
+                    } else {
+                        HStack {
+                            Image(systemName: "info.circle")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 14))
+                            Text("Shortcuts are disabled. Only full words will be recognized.")
+                                .font(.system(size: 13))
+                                .foregroundColor(.secondary)
+                        }
+                    }
                 }
             }
             .padding(.vertical, 16)
@@ -928,108 +964,7 @@ struct GeneralSettingsView: View {
                     )
             )
             
-            Divider()
-            
-            // Shortcuts Setting
-            VStack(alignment: .leading, spacing: 16) {
-                HStack {
-                    Image(systemName: "command")
-                        .foregroundColor(.blue)
-                        .font(.title2)
-                    Text("Command Shortcuts")
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                }
-                
-                VStack(alignment: .leading, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Enable Shortcut Commands")
-                            .font(.headline)
-                            .foregroundColor(.primary)
-                        
-                        Text("Turn off shortcuts like mv, rm, ls, tmr, td if you prefer not to use them. When disabled, these shortcuts won't be recognized in commands.")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Toggle("Enable Shortcuts", isOn: $colorTheme.shortcutsEnabled)
-                                .toggleStyle(SwitchToggleStyle(tint: .blue))
-                                .onChange(of: colorTheme.shortcutsEnabled) {
-                                    colorTheme.saveColors()
-                                }
-                        }
-                        
-                        if colorTheme.shortcutsEnabled {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text("Available shortcuts:")
-                                    .font(.system(size: 14, weight: .medium))
-                                    .foregroundColor(.secondary)
-                                
-                                VStack(alignment: .leading, spacing: 4) {
-                                    HStack {
-                                        Text("mv, move")
-                                            .foregroundColor(.blue)
-                                            .font(.system(size: 13, weight: .medium))
-                                        Text("- Move or reschedule reminders")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    HStack {
-                                        Text("rm, remove, delete")
-                                            .foregroundColor(.red)
-                                            .font(.system(size: 13, weight: .medium))
-                                        Text("- Delete reminders")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    HStack {
-                                        Text("ls, list")
-                                            .foregroundColor(.purple)
-                                            .font(.system(size: 13, weight: .medium))
-                                        Text("- List reminders")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    
-                                    HStack {
-                                        Text("tmr, td")
-                                            .foregroundColor(.yellow)
-                                            .font(.system(size: 13, weight: .medium))
-                                        Text("- Tomorrow, today shortcuts")
-                                            .font(.system(size: 12))
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                .padding(.leading, 8)
-                            }
-                        } else {
-                            HStack {
-                                Image(systemName: "info.circle")
-                                    .foregroundColor(.orange)
-                                    .font(.system(size: 14))
-                                Text("Shortcuts are disabled. Only full words will be recognized.")
-                                    .font(.system(size: 13))
-                                    .foregroundColor(.secondary)
-                            }
-                        }
-                    }
-                }
-                .padding(.vertical, 16)
-                .padding(.horizontal, 20)
-                .background(
-                    RoundedRectangle(cornerRadius: 12)
-                        .fill(.regularMaterial)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(Color.blue.opacity(0.2), lineWidth: 1)
-                        )
-                )
-            }
+
             
             Divider()
             
@@ -1467,9 +1402,7 @@ struct GeneralSettingsView: View {
         AVCaptureDevice.requestAccess(for: .audio) { granted in
             DispatchQueue.main.async {
                 if granted {
-                    print("Microphone permission granted")
                 } else {
-                    print("Microphone permission denied")
                 }
             }
         }
@@ -1538,14 +1471,14 @@ struct AppearanceSettingsSection: View {
                     .foregroundColor(.secondary)
                 
                 Picker("Theme", selection: $colorTheme.appearanceTheme) {
-                    ForEach(AppearanceTheme.allCases, id: \.self) { theme in
+                    ForEach(AppearanceTheme.allCases, id: \.self) { (theme: AppearanceTheme) in
                         Text(theme.displayName).tag(theme)
                     }
                 }
                 .pickerStyle(.segmented)
-                .onChange(of: colorTheme.appearanceTheme) {
+                .onChange(of: colorTheme.appearanceTheme) { _, newValue in
                     colorTheme.saveColors()
-                    applyAppearanceTheme(colorTheme.appearanceTheme)
+                    applyAppearanceTheme(newValue)
                 }
                 
                 Text("• Light: Always uses light appearance\n• Dark: Always uses dark appearance\n• System: Follows your system appearance settings")
@@ -1753,3 +1686,4 @@ struct ValidatedTimeField: View {
     }
     
 }
+#endif

@@ -5,8 +5,10 @@
 //  Created by Martin Kostelka on 03.10.2025.
 //
 
+#if os(macOS)
 import SwiftUI
 import EventKit
+import AppKit
 
 struct ContentView: View {
     @EnvironmentObject var reminderManager: ReminderManager
@@ -518,3 +520,4 @@ struct ContentView: View {
         .environmentObject(HotKeyManager())
         .environmentObject(FloatingWindowManager())
 }
+#endif

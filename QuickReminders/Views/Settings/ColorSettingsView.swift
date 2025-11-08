@@ -5,6 +5,7 @@
 //  Created by QuickReminders on 04.10.2025.
 //
 
+#if os(macOS)
 import SwiftUI
 
 struct ColorSettingsView: View {
@@ -169,3 +170,4 @@ struct ColorSettingsView: View {
         }
     }
 }
+#endif

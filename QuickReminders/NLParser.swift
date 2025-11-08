@@ -1,5 +1,30 @@
+#if os(macOS)
 import Foundation
 import EventKit
+
+// MARK: - ParsedReminder struct for macOS NLParser
+
+public struct ParsedReminder {
+    public let title: String
+    public let dueDate: Date?
+    public let isRecurring: Bool
+    public let recurrenceInterval: Int?
+    public let recurrenceFrequency: EKRecurrenceFrequency?
+    public let recurrenceEndDate: Date?
+    public let isValid: Bool
+    public let errorMessage: String?
+    
+    public init(title: String, dueDate: Date?, isRecurring: Bool = false, recurrenceInterval: Int? = nil, recurrenceFrequency: EKRecurrenceFrequency? = nil, recurrenceEndDate: Date? = nil, isValid: Bool = true, errorMessage: String? = nil) {
+        self.title = title
+        self.dueDate = dueDate
+        self.isRecurring = isRecurring
+        self.recurrenceInterval = recurrenceInterval
+        self.recurrenceFrequency = recurrenceFrequency
+        self.recurrenceEndDate = recurrenceEndDate
+        self.isValid = isValid
+        self.errorMessage = errorMessage
+    }
+}
 
 class NLParser {
     private var timeKeywords: [String: Int] {
@@ -1462,11 +1487,20 @@ class NLParser {
                 // DD/MM format: first value is day, second value is month
                 month = secondValue
                 day = firstValue
+            case .monthDay:
+                // Month Day format: first value is month, second value is day (same as mmdd)
+                month = firstValue
+                day = secondValue
             }
             
             // If month or day is invalid, reject this pattern
             if month < 1 || month > 12 || day < 1 || day > 31 {
-                let formatName = dateFormat == .mmdd ? "MM/DD" : "DD/MM"
+                let formatName: String
+                switch dateFormat {
+                case .mmdd: formatName = "MM/DD"
+                case .ddmm: formatName = "DD/MM"
+                case .monthDay: formatName = "Month Day"
+                }
                 return "Invalid date format: '\(firstValue)/\(secondValue)' doesn't work with \(formatName) format. Check your Date Format setting in preferences."
             }
             
@@ -1478,7 +1512,12 @@ class NLParser {
             dateComponents.year = calendar.component(.year, from: Date()) // Use current year for validation
             
             if calendar.date(from: dateComponents) == nil {
-                let formatName = dateFormat == .mmdd ? "MM/DD" : "DD/MM"
+                let formatName: String
+                switch dateFormat {
+                case .mmdd: formatName = "MM/DD"
+                case .ddmm: formatName = "DD/MM"
+                case .monthDay: formatName = "Month Day"
+                }
                 return "Invalid date: '\(firstValue)/\(secondValue)' with \(formatName) format results in an impossible date (e.g., February 30th)."
             }
         }
@@ -2444,6 +2483,10 @@ class NLParser {
             // DD/MM format: first value is day, second value is month
             month = secondValue
             day = firstValue
+        case .monthDay:
+            // Month Day format: first value is month, second value is day (same as mmdd)
+            month = firstValue
+            day = secondValue
         }
         
         // Validate the date components
@@ -2475,25 +2518,6 @@ class NLParser {
     }
     
 }
+#endif
 
-struct ParsedReminder {
-    let title: String
-    let dueDate: Date?
-    let isRecurring: Bool
-    let recurrenceInterval: Int?
-    let recurrenceFrequency: EKRecurrenceFrequency?
-    let recurrenceEndDate: Date?
-    let isValid: Bool
-    let errorMessage: String?
-    
-    init(title: String, dueDate: Date?, isRecurring: Bool = false, recurrenceInterval: Int? = nil, recurrenceFrequency: EKRecurrenceFrequency? = nil, recurrenceEndDate: Date? = nil, isValid: Bool = true, errorMessage: String? = nil) {
-        self.title = title
-        self.dueDate = dueDate
-        self.isRecurring = isRecurring
-        self.recurrenceInterval = recurrenceInterval
-        self.recurrenceFrequency = recurrenceFrequency
-        self.recurrenceEndDate = recurrenceEndDate
-        self.isValid = isValid
-        self.errorMessage = errorMessage
-    }
-}
+

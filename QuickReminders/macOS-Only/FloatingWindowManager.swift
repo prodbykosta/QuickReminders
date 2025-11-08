@@ -1,3 +1,4 @@
+#if os(macOS)
 import SwiftUI
 import AppKit
 import EventKit
@@ -2627,3 +2628,4 @@ struct DuplicateReminderRow: View {
         }
     }
 }
+#endif

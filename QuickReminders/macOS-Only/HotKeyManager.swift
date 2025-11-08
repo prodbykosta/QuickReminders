@@ -1,7 +1,8 @@
+#if os(macOS)
 import Cocoa
 import SwiftUI
 import Combine
-import Carbon.HIToolbox.Events
+import Carbon
 
 struct KeyboardShortcut {
     let key: CarbonKey
@@ -346,3 +347,4 @@ class HotKeyManager: ObservableObject {
         }
     }
 }
+#endif

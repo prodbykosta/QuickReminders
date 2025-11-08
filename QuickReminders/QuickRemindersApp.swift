@@ -5,6 +5,7 @@
 //  Created by Martin Kostelka on 03.10.2025.
 //
 
+#if os(macOS)
 import SwiftUI
 import AppKit
 import Combine
@@ -24,7 +25,7 @@ extension Notification.Name {
     static let voiceActivationRequested = Notification.Name("voiceActivationRequested")
 }
 
-@main
+// Removed @main - using UniversalApp.swift instead
 struct QuickRemindersApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     
@@ -564,3 +565,4 @@ class AppDelegate: NSObject, NSApplicationDelegate, ObservableObject {
     }
     
 }
+#endif

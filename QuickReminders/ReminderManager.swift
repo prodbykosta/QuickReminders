@@ -1,6 +1,24 @@
+#if os(macOS)
 import Foundation
 import EventKit
 import Combine
+
+enum ReminderError: Error {
+    case accessDenied
+    case invalidInput
+    case saveFailed
+    
+    var localizedDescription: String {
+        switch self {
+        case .accessDenied:
+            return "Access to reminders is denied"
+        case .invalidInput:
+            return "Invalid reminder input"
+        case .saveFailed:
+            return "Failed to save reminder"
+        }
+    }
+}
 
 class ReminderManager: ObservableObject {
     private let eventStore = EKEventStore()
@@ -780,20 +798,4 @@ class ReminderManager: ObservableObject {
         }
     }
 }
-
-enum ReminderError: Error {
-    case accessDenied
-    case invalidInput
-    case saveFailed
-    
-    var localizedDescription: String {
-        switch self {
-        case .accessDenied:
-            return "Access to reminders is denied"
-        case .invalidInput:
-            return "Invalid reminder input"
-        case .saveFailed:
-            return "Failed to save reminder"
-        }
-    }
-}
+#endif

@@ -1,8 +1,6 @@
 # QuickReminders: The Fastest Way to Create Reminders ⚡
 
-Transform how you capture tasks and reminders with QuickReminders - the fastest, most intuitive reminder app for macOS! 🚀 Simply type or speak naturally, and watch your thoughts become perfectly organized reminders in Apple's Reminders app.
-
-
+Transform how you capture tasks and reminders with QuickReminders - the fastest, most intuitive reminder app for macOS and iOS! 🚀 Simply type or speak naturally, and watch your thoughts become perfectly organized reminders in Apple's Reminders app.
 
 ## 📱 Get the App
 
@@ -11,7 +9,6 @@ Transform how you capture tasks and reminders with QuickReminders - the fastest,
 Support development by purchasing the app! Your support helps fund continued development and new features. 💪
 
 ![github_showcase](https://github.com/user-attachments/assets/e5ec790c-48e7-4964-bd07-33442a7699b2)
-
 ## ⚡ Lightning-Fast Natural Language Processing
 No more fumbling with date pickers, time selectors, or complex forms! Just type or speak naturally:
 
@@ -23,12 +20,13 @@ No more fumbling with date pickers, time selectors, or complex forms! Just type 
 ## 🎤 Advanced Voice Commands with Smart Auto-Send
 Revolutionary voice input with intelligent trigger word system! Say "pick up groceries tomorrow 3PM send" and QuickReminders automatically processes your command without touching a button. Customize your own trigger words like "done," "go," "submit," or "sent" in settings. The app recognizes variations and handles speech recognition restart seamlessly.
 
-
 ## ✨ Key Features:
 
-**Spotlight-Style Global Access**
+**🖥️ macOS: Spotlight-Style Global Access**
 Access QuickReminders from anywhere with a customizable keyboard shortcut. The floating window appears instantly, lets you create your reminder, then disappears.
 
+**📱 iOS: Native App + Custom Keyboard Extension**
+Full-featured iOS app with beautiful animations, plus a custom keyboard extension for system-wide access to QuickReminders from any app!
 **Smart List Integration**
 Automatically detects and routes reminders to the appropriate lists in Apple Reminders. Mention "work," "personal," or any custom list name.
 
@@ -41,7 +39,7 @@ Set up repeating tasks with natural language:
 - "Workout tomorrow 7am every day"
 
 **Voice Recognition & Microphone Management**
-Full speech-to-text functionality with proper macOS permission handling. The microphone button provides visual feedback and works seamlessly with system privacy settings.
+Full speech-to-text functionality with proper system permission handling. Works seamlessly with privacy settings on both macOS and iOS.
 
 **Intelligent Duplicate Detection**
 Smart algorithms detect potential duplicate reminders and offer resolution options, preventing reminder clutter.
@@ -62,18 +60,29 @@ Manage existing reminders with natural language:
 
 ## ⚙️ Customization & Settings:
 
+**macOS:**
 - Customizable global hotkey combinations
+- Floating window appearance and behavior
+- Menu bar integration options
+
+**iOS:**
+- Custom keyboard extension with full QuickReminders functionality
+- Beautiful app interface with smooth animations
+- Native iOS design patterns and accessibility
+
+**Universal Features:**
 - Personalized voice trigger words for auto-submission
-- Default time preferences
-- Visual theme options with system integration
-- Accessibility features including high contrast support
+- Default time preferences and natural language parsing
+- Theme options (Light/Dark/System) with custom accent colors
+- Smart time period customization (morning, afternoon, evening, etc.)
+- Comprehensive language processing settings
 
 ## 🛡️ Privacy & Security:
 QuickReminders works directly with Apple's Reminders & Calendar apps - your data remains in Apple's secure, encrypted ecosystem. Voice processing respects system privacy preferences. The app requests only essential permissions: Reminders access for core functionality, and optional microphone access for voice features.
 
 ## 🤝 Contributing
 
-I appreciate anyone that contributes! I plan to bring QuickReminders to iOS soon, so any help is greatly appreciated. 🙏
+I appreciate anyone that contributes! QuickReminders is now available on both macOS and iOS, with continued development planned for both platforms. Any help is greatly appreciated! 🙏
 
 ---
 

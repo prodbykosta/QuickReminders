@@ -5,6 +5,7 @@
 //  Created by QuickReminders on 04.10.2025.
 //
 
+#if os(macOS)
 import AppKit
 import Foundation
 
@@ -29,4 +30,4 @@ class PreferencesWindow: NSWindow {
         // Safe close method
         super.close()
     }
-}
+}#endif

@@ -5,10 +5,12 @@
 //  Created by QuickReminders on 04.10.2025.
 //
 
+#if os(macOS)
 import SwiftUI
 import EventKit
 import Speech
 import AVFoundation
+import AppKit
 
 enum GettingStartedScreen {
     case welcome
@@ -595,3 +597,4 @@ struct AnimatedGIFView: NSViewRepresentable {
         // Getting started completed
     }
 }
+#endif

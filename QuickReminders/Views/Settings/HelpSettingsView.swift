@@ -5,6 +5,7 @@
 //  Created by QuickReminders on 05.10.2025.
 //
 
+#if os(macOS)
 import SwiftUI
 
 struct HelpSettingsView: View {
@@ -706,3 +707,4 @@ struct TipRow: View {
         }
     }
 }
+#endif

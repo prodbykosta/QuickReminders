@@ -5,7 +5,9 @@
 //  Created by QuickReminders on 04.10.2025.
 //
 
+#if os(macOS)
 import SwiftUI
+import AppKit
 
 struct HotkeySettingsView: View {
     @ObservedObject var hotKeyManager: HotKeyManager
@@ -213,3 +215,4 @@ struct HotkeyToggleStyle: ToggleStyle {
         .buttonStyle(PlainButtonStyle())
     }
 }
+#endif

@@ -20,23 +20,42 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
-	<key>LSMinimumSystemVersion</key>
-	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
-	<key>NSCalendarsUsageDescription</key>
-	<string>QuickReminders needs access to Calendars to create and manage your reminders through natural language input.</string>
-	<key>NSCalendarsFullAccessUsageDescription</key>
-	<string>QuickReminders needs full access to Calendars to create and manage your reminders through natural language input.</string>
-	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
-	<string>QuickReminders needs write access to Calendars to create reminders through natural language input.</string>
-	<key>NSRemindersUsageDescription</key>
-	<string>QuickReminders needs access to Reminders to create and manage your reminders through natural language input.</string>
-	<key>NSRemindersFullAccessUsageDescription</key>
-	<string>QuickReminders needs full access to Reminders to create and manage your reminders through natural language input.</string>
-	<key>NSMicrophoneUsageDescription</key>
-	<string>QuickReminders needs microphone access to recognize speech and create reminders using voice commands.</string>
-	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>QuickReminders needs speech recognition access to convert your voice commands into reminders.</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.productivity</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>$(MACOSX_DEPLOYMENT_TARGET)</string>
+	<key>NSCalendarsFullAccessUsageDescription</key>
+	<string>QuickReminders needs full access to Calendars to create and manage your reminders through natural language input.</string>
+	<key>NSCalendarsUsageDescription</key>
+	<string>QuickReminders needs access to Calendars to create and manage your reminders through natural language input.</string>
+	<key>NSCalendarsWriteOnlyAccessUsageDescription</key>
+	<string>QuickReminders needs write access to Calendars to create reminders through natural language input.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>QuickReminders needs microphone access to recognize speech and create reminders using voice commands.</string>
+	<key>NSRemindersFullAccessUsageDescription</key>
+	<string>QuickReminders needs full access to Reminders to create and manage your reminders through natural language input.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>QuickReminders needs access to Reminders to create and manage your reminders through natural language input.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>QuickReminders needs speech recognition access to convert your voice commands into reminders.</string>
+	<key>UILaunchScreen</key>
+	<dict>
+		<key>UILaunchScreen</key>
+		<string></string>
+	</dict>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
 </dict>
 </plist>

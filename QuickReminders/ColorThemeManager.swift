@@ -5,9 +5,11 @@
 //  Created by QuickReminders on 04.10.2025.
 //
 
+#if os(macOS)
 import SwiftUI
 import Foundation
 import Combine
+import AppKit
 
 enum AppearanceTheme: String, CaseIterable {
     case light = "light"
@@ -66,14 +68,16 @@ enum WindowPosition: String, CaseIterable {
     }
 }
 
-enum DateFormat: String, CaseIterable {
+enum DateFormat: String, CaseIterable, Codable {
     case mmdd = "MM/DD"
     case ddmm = "DD/MM"
+    case monthDay = "monthDay"
     
     var displayName: String {
         switch self {
         case .mmdd: return "MM/DD (US Format)"
         case .ddmm: return "DD/MM (International Format)"
+        case .monthDay: return "Month Day (e.g., Oct 26)"
         }
     }
     
@@ -81,6 +85,7 @@ enum DateFormat: String, CaseIterable {
         switch self {
         case .mmdd: return "Month/Day (e.g., 10/26 = October 26th)"
         case .ddmm: return "Day/Month (e.g., 26/10 = October 26th)"
+        case .monthDay: return "Month Day (e.g., Oct 26 = October 26th)"
         }
     }
 }
@@ -122,28 +127,36 @@ class ColorThemeManager: ObservableObject {
     private func loadColors() {
         do {
             // Load success color safely
+            #if os(macOS)
             if let successData = userDefaults.data(forKey: "SuccessColor"),
                let successColor = try NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: successData) {
                 self.successColor = Color(safeNSColor: successColor)
             }
+            #endif
             
             // Load error color safely
+            #if os(macOS)
             if let errorData = userDefaults.data(forKey: "ErrorColor"),
                let errorColor = try NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: errorData) {
                 self.errorColor = Color(safeNSColor: errorColor)
             }
+            #endif
             
             // Load primary color safely
+            #if os(macOS)
             if let primaryData = userDefaults.data(forKey: "PrimaryColor"),
                let primaryColor = try NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: primaryData) {
                 self.primaryColor = Color(safeNSColor: primaryColor)
             }
+            #endif
             
             // Load selected list color safely
+            #if os(macOS)
             if let listData = userDefaults.data(forKey: "SelectedListColor"),
                let listColor = try NSKeyedUnarchiver.unarchivedObject(ofClass: NSColor.self, from: listData) {
                 self.selectedListColor = Color(safeNSColor: listColor)
             }
+            #endif
             
             // Load default AM/PM setting
             let savedDefaultAmPm = userDefaults.string(forKey: "DefaultAmPm")
@@ -279,20 +292,28 @@ class ColorThemeManager: ObservableObject {
     func saveColors() {
         do {
             // Save success color safely
+            #if os(macOS)
             let successData = try NSKeyedArchiver.archivedData(withRootObject: successColor.nsColor, requiringSecureCoding: false)
             userDefaults.set(successData, forKey: "SuccessColor")
+            #endif
             
             // Save error color safely
+            #if os(macOS)
             let errorData = try NSKeyedArchiver.archivedData(withRootObject: errorColor.nsColor, requiringSecureCoding: false)
             userDefaults.set(errorData, forKey: "ErrorColor")
+            #endif
             
             // Save primary color safely
+            #if os(macOS)
             let primaryData = try NSKeyedArchiver.archivedData(withRootObject: primaryColor.nsColor, requiringSecureCoding: false)
             userDefaults.set(primaryData, forKey: "PrimaryColor")
+            #endif
             
             // Save selected list color safely
+            #if os(macOS)
             let listData = try NSKeyedArchiver.archivedData(withRootObject: selectedListColor.nsColor, requiringSecureCoding: false)
             userDefaults.set(listData, forKey: "SelectedListColor")
+            #endif
             
             // Save default AM/PM setting
             userDefaults.set(defaultAmPm, forKey: "DefaultAmPm")
@@ -428,11 +449,17 @@ class ColorThemeManager: ObservableObject {
             guard let self = self else { return }
             switch self.appearanceTheme {
             case .light:
+                #if os(macOS)
                 NSApp.appearance = NSAppearance(named: .aqua)
+                #endif
             case .dark:
+                #if os(macOS)
                 NSApp.appearance = NSAppearance(named: .darkAqua)
+                #endif
             case .system:
+                #if os(macOS)
                 NSApp.appearance = nil // Follow system setting
+                #endif
             }
         }
     }
@@ -456,6 +483,7 @@ struct ColorTheme {
 
 // Safe extension to help with color conversion
 extension Color {
+    #if os(macOS)
     init(safeNSColor nsColor: NSColor) {
         // Convert NSColor to Color safely
         if #available(macOS 12.0, *) {
@@ -486,4 +514,6 @@ extension Color {
             )
         }
     }
+    #endif
 }
+#endif

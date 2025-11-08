@@ -9,7 +9,12 @@ import Foundation
 import Speech
 import AVFoundation
 import Combine
+
+#if os(macOS)
 import AppKit
+#else
+import UIKit
+#endif
 
 class SpeechManager: NSObject, ObservableObject {
     
@@ -305,9 +310,15 @@ class SpeechManager: NSObject, ObservableObject {
     }
 
     func openMicrophoneSettings() {
+        #if os(macOS)
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone") {
             NSWorkspace.shared.open(url)
         }
+        #else
+        if let url = URL(string: "App-Prefs:Privacy&path=MICROPHONE") {
+            UIApplication.shared.open(url)
+        }
+        #endif
     }
 }
 
