@@ -27,8 +27,6 @@ Access QuickReminders from anywhere with a customizable keyboard shortcut. The f
 
 **📱 iOS: Native App + Custom Keyboard Extension**
 Full-featured iOS app with beautiful animations, plus a custom keyboard extension for system-wide access to QuickReminders from any app!
-**Smart List Integration**
-Automatically detects and routes reminders to the appropriate lists in Apple Reminders. Mention "work," "personal," or any custom list name.
 
 **Recurring Reminders**
 Set up repeating tasks with natural language:
@@ -66,7 +64,7 @@ Manage existing reminders with natural language:
 - Menu bar integration options
 
 **iOS:**
-- Custom keyboard extension with full QuickReminders functionality
+- Custom keyboard extension with QuickReminders functionality
 - Beautiful app interface with smooth animations
 - Native iOS design patterns and accessibility
 
