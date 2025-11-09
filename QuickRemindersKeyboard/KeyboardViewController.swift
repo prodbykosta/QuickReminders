@@ -1848,6 +1848,9 @@ class KeyboardViewController: UIInputViewController {
     }
     
     private func setupNextKeyboardButton() {
+        // Only show the globe button on iPad - iPhone handles this automatically
+        guard UIDevice.current.userInterfaceIdiom == .pad else { return }
+        
         // Create the system next keyboard button
         let nextKeyboardButton = UIButton(type: .system)
         nextKeyboardButton.setTitle("🌐", for: .normal)
