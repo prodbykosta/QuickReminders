@@ -1837,11 +1837,41 @@ class KeyboardViewController: UIInputViewController {
     override func viewDidLoad() {
         super.viewDidLoad()
         setupKeyboard()
+        
+        // CRITICAL: Add the system next keyboard button
+        setupNextKeyboardButton()
     }
     
     // MARK: - Input Mode Switch Support
     override var needsInputModeSwitchKey: Bool {
         return true // This ensures the globe button appears for switching keyboards
+    }
+    
+    private func setupNextKeyboardButton() {
+        // Create the system next keyboard button
+        let nextKeyboardButton = UIButton(type: .system)
+        nextKeyboardButton.setTitle("🌐", for: .normal)
+        nextKeyboardButton.titleLabel?.font = UIFont.systemFont(ofSize: 18)
+        nextKeyboardButton.addTarget(self, action: #selector(handleInputModeChange), for: .touchUpInside)
+        nextKeyboardButton.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add it to the view
+        view.addSubview(nextKeyboardButton)
+        
+        // Position it in bottom left corner
+        NSLayoutConstraint.activate([
+            nextKeyboardButton.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 8),
+            nextKeyboardButton.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -8),
+            nextKeyboardButton.widthAnchor.constraint(equalToConstant: 40),
+            nextKeyboardButton.heightAnchor.constraint(equalToConstant: 40)
+        ])
+        
+        nextKeyboardButton.backgroundColor = UIColor.systemGray5
+        nextKeyboardButton.layer.cornerRadius = 8
+    }
+    
+    @objc private func handleInputModeChange() {
+        advanceToNextInputMode()
     }
     
     override func viewDidAppear(_ animated: Bool) {
