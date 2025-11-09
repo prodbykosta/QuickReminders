@@ -125,6 +125,7 @@ struct SimpleKeyButton: View {
 struct WorkingKeyboardView: View {
     let onTextInput: (String) -> Void
     let onProcess: (String) -> Void
+    let onNextKeyboard: (() -> Void)?
     
     @State private var inputText = ""
     @State private var keyboardMode = 0 // 0=letters, 1=numbers, 2=symbols
@@ -150,9 +151,10 @@ struct WorkingKeyboardView: View {
     @StateObject private var reminderManager: SharedReminderManager
     @StateObject private var colorTheme: SharedColorThemeManager
     
-    init(onTextInput: @escaping (String) -> Void, onProcess: @escaping (String) -> Void, colorTheme: SharedColorThemeManager? = nil, reminderManager: SharedReminderManager? = nil) {
+    init(onTextInput: @escaping (String) -> Void, onProcess: @escaping (String) -> Void, onNextKeyboard: (() -> Void)? = nil, colorTheme: SharedColorThemeManager? = nil, reminderManager: SharedReminderManager? = nil) {
         self.onTextInput = onTextInput
         self.onProcess = onProcess
+        self.onNextKeyboard = onNextKeyboard
         
         if let theme = colorTheme, let manager = reminderManager {
             // Use provided instances
@@ -594,6 +596,26 @@ struct WorkingKeyboardView: View {
             
             // Bottom row with space and controls - compact like iPhone
             HStack(spacing: 2) {
+                // Next keyboard button (globe icon) - for switching keyboards
+                Button(action: {
+                    playKeySound()
+                    // This should trigger the keyboard switch
+                    if let keyboardController = onNextKeyboard {
+                        keyboardController()
+                    }
+                }) {
+                    Image(systemName: "globe")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.black)
+                        .frame(maxHeight: .infinity)
+                }
+                .frame(width: 50, height: 42)
+                .background(
+                    RoundedRectangle(cornerRadius: 5)
+                        .fill(Color.gray.opacity(0.3))
+                        .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
+                )
+                
                 // Mode switch
                 Button(action: {
                     playKeySound()
@@ -608,7 +630,7 @@ struct WorkingKeyboardView: View {
                         .foregroundColor(.black)
                         .frame(maxHeight: .infinity)
                 }
-                .frame(width: 60, height: 42)
+                .frame(width: 55, height: 42)
                 .background(
                     RoundedRectangle(cornerRadius: 5)
                         .fill(Color.gray.opacity(0.3))
@@ -1817,6 +1839,11 @@ class KeyboardViewController: UIInputViewController {
         setupKeyboard()
     }
     
+    // MARK: - Input Mode Switch Support
+    override var needsInputModeSwitchKey: Bool {
+        return true // This ensures the globe button appears for switching keyboards
+    }
+    
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
     }
@@ -1834,6 +1861,9 @@ class KeyboardViewController: UIInputViewController {
             },
             onProcess: { [weak self] text in
                 self?.processReminder(text)
+            },
+            onNextKeyboard: { [weak self] in
+                self?.advanceToNextInputMode()
             },
             colorTheme: theme,
             reminderManager: reminderManager
