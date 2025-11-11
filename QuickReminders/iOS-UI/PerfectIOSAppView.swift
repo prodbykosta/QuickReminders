@@ -191,6 +191,9 @@ struct PerfectIOSAppView: View {
         }
         .preferredColorScheme(colorScheme)
         .onAppear {
+            // CRITICAL: Request permissions immediately on iOS app start
+            reminderManager.requestPermissionManually()
+            
             // Update colors based on selected list when app appears
             colorTheme.updateColorsForRemindersList(reminderManager.selectedList)
             
@@ -554,6 +557,9 @@ struct PerfectCreateReminderView: View {
             isListening = listening
         }
         .onAppear {
+            // CRITICAL: Request permissions for reminder creation
+            reminderManager.requestPermissionManually()
+            
             // Set up voice trigger callbacks like macOS
             speechManager.onAutoSend = { finalTranscription in
                 DispatchQueue.main.async {

@@ -293,6 +293,8 @@ struct iOSContentView: View {
                 .environmentObject(speechManager)
         }
         .onAppear {
+            // CRITICAL: Request reminder permissions on iOS app start
+            reminderManager.requestPermissionManually()
             setupSpeechManager()
             loadRecentReminders()
         }
