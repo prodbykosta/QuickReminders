@@ -32,7 +32,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "1406"
             endingLineNumber = "1406"
-            landmarkName = "searchForRemoval()"
+            landmarkName = "loadReminders()"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
