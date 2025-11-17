@@ -151,6 +151,10 @@ class IOSSyntaxHighlighter {
             ("(?<=\\btd\\s)\\d{1,2}\\b", UIColor.systemRed),
             ("\\b\\d{1,2}:\\d{2}\\s*(am|pm|AM|PM)?\\b", UIColor.systemRed), // 9:45pm, 21:30
             ("\\b\\d{1,2}\\s*(am|pm|AM|PM)\\b", UIColor.systemRed), // 9pm, 9AM
+            
+            // Hour/minute patterns (RED) - NEW
+            ("\\bin\\s+\\d+\\s*(?:hours?|hrs?|h)\\b", UIColor.systemRed), // in 2 hours, in 2h
+            ("\\bin\\s+\\d+\\s*(?:minutes?|mins?|min|m)\\b", UIColor.systemRed), // in 30 minutes, in 30min
         ])
         
         // Add time periods pattern only if enabled

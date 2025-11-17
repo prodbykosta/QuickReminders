@@ -6,6 +6,46 @@ import Combine
 import Speech
 import AVFoundation
 
+// MARK: - Notification Names
+extension Notification.Name {
+    static let reminderListDidUpdate = Notification.Name("reminderListDidUpdate")
+}
+
+// MARK: - Helper Functions
+
+private func floatingRecurrenceText(from rule: EKRecurrenceRule) -> String {
+    let interval = rule.interval
+    
+    switch rule.frequency {
+    case .daily:
+        if interval == 1 {
+            return "Daily"
+        } else {
+            return "Every \(interval) days"
+        }
+    case .weekly:
+        if interval == 1 {
+            return "Weekly"
+        } else {
+            return "Every \(interval) weeks"
+        }
+    case .monthly:
+        if interval == 1 {
+            return "Monthly"
+        } else {
+            return "Every \(interval) months"
+        }
+    case .yearly:
+        if interval == 1 {
+            return "Yearly"
+        } else {
+            return "Every \(interval) years"
+        }
+    @unknown default:
+        return "Repeats"
+    }
+}
+
 enum InsideWindowState {
     case hidden
     case showingList
@@ -1241,6 +1281,8 @@ struct FloatingReminderView: View {
                     if success {
                         self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
                         // Created recurring reminder
+                        // Notify list view to refresh if it's currently showing
+                        NotificationCenter.default.post(name: .reminderListDidUpdate, object: nil)
                     } else {
                         let _ = error?.localizedDescription ?? "Unknown error"
                         self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
@@ -1260,6 +1302,8 @@ struct FloatingReminderView: View {
                     
                     if success {
                         self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                        // Notify list view to refresh if it's currently showing
+                        NotificationCenter.default.post(name: .reminderListDidUpdate, object: nil)
                     } else {
                         let _ = error?.localizedDescription ?? "Unknown error"
                         self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
@@ -1629,6 +1673,8 @@ struct FloatingReminderView: View {
                     
                     if success {
                         self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                        // Notify list view to refresh after recurring move operation
+                        NotificationCenter.default.post(name: .reminderListDidUpdate, object: nil)
                     } else {
                         self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
                     }
@@ -1641,6 +1687,8 @@ struct FloatingReminderView: View {
                     
                     if success {
                         self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                        // Notify list view to refresh after move operation
+                        NotificationCenter.default.post(name: .reminderListDidUpdate, object: nil)
                     } else {
                         self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
                     }
@@ -1814,6 +1862,8 @@ struct FloatingReminderView: View {
             DispatchQueue.main.async {
                 if success {
                     self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                    // Notify list view to refresh after deletion
+                    NotificationCenter.default.post(name: .reminderListDidUpdate, object: nil)
                 } else {
                     self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
                 }
@@ -1836,6 +1886,8 @@ struct FloatingReminderView: View {
                     DispatchQueue.main.async {
                         if success {
                             self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                            // Notify list view to refresh after move operation
+                            NotificationCenter.default.post(name: .reminderListDidUpdate, object: nil)
                         } else {
                             self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
                         }
@@ -1846,6 +1898,8 @@ struct FloatingReminderView: View {
                     DispatchQueue.main.async {
                         if success {
                             self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                            // Notify list view to refresh after move operation
+                            NotificationCenter.default.post(name: .reminderListDidUpdate, object: nil)
                         } else {
                             self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
                         }
@@ -1858,6 +1912,8 @@ struct FloatingReminderView: View {
                 DispatchQueue.main.async {
                     if success {
                         self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
+                        // Notify list view to refresh after list move operation
+                        NotificationCenter.default.post(name: .reminderListDidUpdate, object: nil)
                     } else {
                         self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
                     }
@@ -2020,6 +2076,13 @@ struct RemindersListView: View {
         }
         .onChange(of: filter) {
             loadFilteredReminders()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .reminderListDidUpdate)) { _ in
+            // Smoothly refresh the list when new reminders are added
+            // Only refresh if we're not currently loading to avoid conflicts
+            if !isLoading {
+                loadFilteredReminders()
+            }
         }
     }
     
@@ -2424,6 +2487,20 @@ struct ReminderRowView: View {
                         .foregroundColor(.secondary)
                 }
                 
+                // Show recurring indicator under the time (like native Reminders)
+                if let recurrenceRules = reminder.recurrenceRules, !recurrenceRules.isEmpty,
+                   let rule = recurrenceRules.first {
+                    HStack(spacing: 3) {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                        
+                        Text(floatingRecurrenceText(from: rule))
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                    }
+                }
+                
                 if let notes = reminder.notes, !notes.isEmpty {
                     Text(notes)
                         .font(.system(size: 11))
@@ -2576,10 +2653,22 @@ struct DuplicateReminderRow: View {
                         .font(.system(size: 11))
                         .foregroundColor(Color(reminder.calendar.cgColor))
                     
-                    if reminder.hasRecurrenceRules && !(reminder.recurrenceRules?.isEmpty ?? true) {
-                        Text("• Recurring")
-                            .font(.system(size: 11))
-                            .foregroundColor(.secondary)
+                    // Show recurring indicator with proper icon and frequency
+                    if let recurrenceRules = reminder.recurrenceRules, !recurrenceRules.isEmpty,
+                       let rule = recurrenceRules.first {
+                        HStack(spacing: 2) {
+                            Text("•")
+                                .font(.system(size: 11))
+                                .foregroundColor(.secondary)
+                            
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 9))
+                                .foregroundColor(.secondary)
+                            
+                            Text(floatingRecurrenceText(from: rule))
+                                .font(.system(size: 9))
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
             }

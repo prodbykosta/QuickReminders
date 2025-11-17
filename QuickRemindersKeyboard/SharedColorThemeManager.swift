@@ -146,10 +146,9 @@ class SharedColorThemeManager: ObservableObject {
         
         colorHelpersEnabled = sharedDefaults.object(forKey: "ColorHelpersEnabled") as? Bool ?? true
         
-        // Load custom quick ideas
-        if let savedIdeas = sharedDefaults.array(forKey: "CustomQuickIdeas") as? [String] {
-            customQuickIdeas = savedIdeas
-        }
+        // Load custom quick ideas - ALWAYS update to ensure sync
+        let savedIdeas = sharedDefaults.array(forKey: "CustomQuickIdeas") as? [String] ?? []
+        customQuickIdeas = savedIdeas
         
         // Load animation settings
         animationsEnabled = sharedDefaults.object(forKey: "AnimationsEnabled") as? Bool ?? true
@@ -378,6 +377,10 @@ class SharedColorThemeManager: ObservableObject {
         sharedDefaults.synchronize()
         // Reload settings to get latest values from iOS app
         loadSettings()
+        // Force UI update after syncing
+        DispatchQueue.main.async {
+            self.objectWillChange.send()
+        }
     }
 
     public func reloadSettings() {

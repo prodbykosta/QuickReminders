@@ -83,6 +83,26 @@ class SharedNLParser {
             "(\\d{1,2})[./](\\d{1,2})\\.?"
         ]
         self.relativeDatePatterns = [
+            // NEW: Hours/Minutes patterns with weekday combinations and recurring
+            "\\bin\\s+(\\d+)\\s*(?:hours?|hrs?|h)\\s+(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)\\s+(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s*(?:hours?|hrs?|h)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            
+            // NEW: Hours/Minutes patterns with weekday combinations (non-recurring)
+            "\\bin\\s+(\\d+)\\s*(?:hours?|hrs?|h)\\s+(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)",
+            "\\bin\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)\\s+(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s*(?:hours?|hrs?|h)",
+            "(?:on\\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+in\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)",
+            
+            // NEW: Hours/Minutes patterns with recurring (no weekday)
+            "\\bin\\s+(\\d+)\\s*(?:hours?|hrs?|h)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            
+            // NEW: Hours/Minutes patterns (simple) - FIX FOR RED BORDER ERROR
+            "in\\s+(\\d+)\\s*(?:hours?|hrs?|h)",
+            "in\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)",
+            
             "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
             "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
             "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
@@ -295,7 +315,10 @@ class SharedNLParser {
         // 6. Detect relative dates (tomorrow, today)
         let relativeDateInfo = detectRelativeDate(in: text, detectedPhrases: &detectedPhrases)
         
-        // 6. Combine the information to create a date
+        // 6.5. Detect time offset (in X hours/minutes) - NEW
+        let timeOffsetInfo = detectTimeOffset(in: text, detectedPhrases: &detectedPhrases)
+        
+        // 7. Combine the information to create a date
         if let recurrence = recurrenceInfo {
             // We have recurrence, figure out the start date
             var startDate: Date?
@@ -305,6 +328,21 @@ class SharedNLParser {
             if let time = timeInfo {
                 hour = time.hour
                 minute = time.minute
+            }
+            
+            // Handle time offset for recurring reminders (FIXED LOGIC)
+            if let timeOffset = timeOffsetInfo {
+                // Calculate offset time from NOW (not from base date)
+                var offsetTime = now
+                if let hours = timeOffset.hours {
+                    offsetTime = calendar.date(byAdding: .hour, value: hours, to: offsetTime) ?? offsetTime
+                }
+                if let minutes = timeOffset.minutes {
+                    offsetTime = calendar.date(byAdding: .minute, value: minutes, to: offsetTime) ?? offsetTime
+                }
+                // Extract hour and minute from the calculated offset time
+                hour = calendar.component(.hour, from: offsetTime)
+                minute = calendar.component(.minute, from: offsetTime)
             }
             
             // Determine start date
@@ -522,6 +560,28 @@ class SharedNLParser {
                 minute = time.minute
             }
             
+            // FIXED: Handle time offset combinations (like "in 2 days in 2min")
+            if let timeOffset = timeOffsetInfo {
+                // Calculate the base date first
+                let baseDate = calendar.date(byAdding: .day, value: daysFromNow, to: now) ?? now
+                
+                // Calculate offset time from NOW
+                var offsetTime = now
+                if let hours = timeOffset.hours {
+                    offsetTime = calendar.date(byAdding: .hour, value: hours, to: offsetTime) ?? offsetTime
+                }
+                if let minutes = timeOffset.minutes {
+                    offsetTime = calendar.date(byAdding: .minute, value: minutes, to: offsetTime) ?? offsetTime
+                }
+                
+                // Get the start of the base date and add the time offset
+                let baseDateStart = calendar.startOfDay(for: baseDate)
+                let timeOffsetFromNow = offsetTime.timeIntervalSince(now)
+                let finalDate = baseDateStart.addingTimeInterval(timeOffsetFromNow)
+                
+                return (finalDate, false, nil, nil, nil, detectedPhrases)
+            }
+            
             if let startDate = calendar.date(byAdding: .day, value: daysFromNow, to: now) {
                 var components = calendar.dateComponents([.year, .month, .day], from: startDate)
                 components.hour = hour
@@ -535,6 +595,29 @@ class SharedNLParser {
             if let time = timeInfo {
                 hour = time.hour
                 minute = time.minute
+            }
+            
+            // FIXED: Handle time offset combinations (like "tm in 2min")
+            if let timeOffset = timeOffsetInfo {
+                // Calculate the base date first
+                let daysToAdd = isToday ? 0 : 1
+                let baseDate = calendar.date(byAdding: .day, value: daysToAdd, to: now) ?? now
+                
+                // Calculate offset time from NOW
+                var offsetTime = now
+                if let hours = timeOffset.hours {
+                    offsetTime = calendar.date(byAdding: .hour, value: hours, to: offsetTime) ?? offsetTime
+                }
+                if let minutes = timeOffset.minutes {
+                    offsetTime = calendar.date(byAdding: .minute, value: minutes, to: offsetTime) ?? offsetTime
+                }
+                
+                // Get the start of the base date and add the time offset
+                let baseDateStart = calendar.startOfDay(for: baseDate)
+                let timeOffsetFromNow = offsetTime.timeIntervalSince(now)
+                let finalDate = baseDateStart.addingTimeInterval(timeOffsetFromNow)
+                
+                return (finalDate, false, nil, nil, nil, detectedPhrases)
             }
             
             let daysToAdd = isToday ? 0 : 1
@@ -552,6 +635,67 @@ class SharedNLParser {
             components.minute = time.minute
             let finalDate = calendar.date(from: components)
             return (finalDate, false, nil, nil, nil, detectedPhrases)
+        } else if let timeOffset = timeOffsetInfo {
+            // Handle time offset (in X hours/minutes) - FIXED LOGIC
+            
+            // Check if we have a combination with weekday/relative date
+            let hasWeekdayCombo = weekdayInfo != nil
+            let hasRelativeDateCombo = relativeDateInfo.daysFromNow != nil || relativeDateInfo.isToday != nil
+            
+            if hasWeekdayCombo || hasRelativeDateCombo {
+                // Complex combination: weekday/relative date + time offset
+                // Step 1: Determine base date
+                var baseDate = now
+                
+                // Check for weekday combination (like "mon in 30min")
+                if let weekday = weekdayInfo {
+                    let targetWeekday = weekday.weekdayNumber
+                    var daysUntilTarget = targetWeekday - calendar.component(.weekday, from: now)
+                    if daysUntilTarget <= 0 { daysUntilTarget += 7 }
+                    baseDate = calendar.date(byAdding: .day, value: daysUntilTarget, to: now) ?? now
+                }
+                
+                // Check for relative date combination (like "tm in 2 hours")
+                if let daysFromNow = relativeDateInfo.daysFromNow {
+                    baseDate = calendar.date(byAdding: .day, value: daysFromNow, to: now) ?? now
+                } else if let isToday = relativeDateInfo.isToday {
+                    // Handle today/tomorrow combinations
+                    let daysToAdd = isToday ? 0 : 1  // today = 0, tomorrow = 1
+                    baseDate = calendar.date(byAdding: .day, value: daysToAdd, to: now) ?? now
+                }
+                
+                // Step 2: Calculate offset time from NOW (not from base date)
+                var offsetTime = now
+                if let hours = timeOffset.hours {
+                    offsetTime = calendar.date(byAdding: .hour, value: hours, to: offsetTime) ?? offsetTime
+                }
+                if let minutes = timeOffset.minutes {
+                    offsetTime = calendar.date(byAdding: .minute, value: minutes, to: offsetTime) ?? offsetTime
+                }
+                
+                // Step 3: Combine base date + offset time (FIXED: Handle overflow properly)
+                // Get the start of the base date (midnight)
+                let baseDateStart = calendar.startOfDay(for: baseDate)
+                
+                // Calculate the total time offset from now
+                let timeOffsetFromNow = offsetTime.timeIntervalSince(now)
+                
+                // Add the time offset to the base date start
+                let finalDate = baseDateStart.addingTimeInterval(timeOffsetFromNow)
+                
+                return (finalDate, false, nil, nil, nil, detectedPhrases)
+            } else {
+                // Pure time offset - just add to current time directly
+                var offsetTime = now
+                if let hours = timeOffset.hours {
+                    offsetTime = calendar.date(byAdding: .hour, value: hours, to: offsetTime) ?? offsetTime
+                }
+                if let minutes = timeOffset.minutes {
+                    offsetTime = calendar.date(byAdding: .minute, value: minutes, to: offsetTime) ?? offsetTime
+                }
+                
+                return (offsetTime, false, nil, nil, nil, detectedPhrases)
+            }
         }
         
         return (nil, false, nil, nil, nil, [])
@@ -841,7 +985,7 @@ class SharedNLParser {
         let timePatterns = [
             "\\b(\\d{1,2}):(\\d{2})\\s*(am|pm)?",           // 10:30am, 10:30
             "\\b(\\d{1,2})\\s*(am|pm)",                    // 10am, 10pm
-            "(?<!\\d)(\\d{1,2})(?!:)(?![/.]|st|nd|rd|th|\\s+(days?|weeks?|months?|of|am|pm))"  // 10 (standalone number, not ordinal or followed by days/weeks/months/of/am/pm)
+            "(?<!\\d)(?<!in\\s)(\\d{1,2})(?!:)(?![/.]|st|nd|rd|th|\\s+(days?|weeks?|months?|hours?|hrs?|h|minutes?|mins?|min|m|of|am|pm))"  // 10 (standalone number, not preceded by "in " and not followed by time/date units)
         ]
         
         for pattern in timePatterns {
@@ -899,6 +1043,47 @@ class SharedNLParser {
         return nil
     }
     
+    private func detectTimeOffset(in text: String, detectedPhrases: inout [String]) -> (hours: Int?, minutes: Int?)? {
+        // Check for "in X hours/minutes" patterns (NEW)
+        if text.contains("in") {
+            let timePatterns = [
+                ("in\\s+(\\d+)\\s*(?:hours?|hrs?|h)\\b", "hours"),
+                ("in\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)\\b", "minutes")
+            ]
+            
+            var detectedHours: Int? = nil
+            var detectedMinutes: Int? = nil
+            
+            for (pattern, unit) in timePatterns {
+                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                    let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length))
+                    
+                    for match in matches {
+                        let matchedText = String(text[Range(match.range, in: text)!])
+                        detectedPhrases.append(matchedText.trimmingCharacters(in: .whitespacesAndNewlines))
+                        
+                        let numberRange = match.range(at: 1)
+                        if numberRange.location != NSNotFound {
+                            let numberStr = String(text[Range(numberRange, in: text)!])
+                            if let number = Int(numberStr) {
+                                if unit == "hours" {
+                                    detectedHours = number
+                                } else if unit == "minutes" {
+                                    detectedMinutes = number
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
+            if detectedHours != nil || detectedMinutes != nil {
+                return (detectedHours, detectedMinutes)
+            }
+        }
+        return nil
+    }
+    
     private func detectRelativeDate(in text: String, detectedPhrases: inout [String]) -> (isToday: Bool?, daysFromNow: Int?) {
         // Check for "in X days/weeks/months" patterns using simpler detection
         if text.contains("in") && (text.contains("day") || text.contains("week") || text.contains("month")) {
@@ -910,17 +1095,19 @@ class SharedNLParser {
             ]
             
             for (pattern, multiplier) in inPatterns {
-                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
-                   let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+                if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                    let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length))
                     
-                    let matchedText = String(text[Range(match.range, in: text)!])
-                    detectedPhrases.append(matchedText)
-                    
-                    let numberRange = match.range(at: 1)
-                    if numberRange.location != NSNotFound {
-                        let numberStr = String(text[Range(numberRange, in: text)!])
-                        if let number = Int(numberStr) {
-                            return (nil, number * multiplier)
+                    for match in matches {
+                        let matchedText = String(text[Range(match.range, in: text)!])
+                        detectedPhrases.append(matchedText)
+                        
+                        let numberRange = match.range(at: 1)
+                        if numberRange.location != NSNotFound {
+                            let numberStr = String(text[Range(numberRange, in: text)!])
+                            if let number = Int(numberStr) {
+                                return (nil, number * multiplier)  // Return the first valid one found
+                            }
                         }
                     }
                 }
@@ -1092,6 +1279,8 @@ class SharedNLParser {
             // Categorize each phrase
             if lowercasePhrase.contains("every") || lowercasePhrase.contains("daily") || lowercasePhrase.contains("weekly") || lowercasePhrase.contains("monthly") {
                 schedulingPhrases.recurrence.append(phrase)
+            } else if lowercasePhrase.hasPrefix("in ") && (lowercasePhrase.contains("hour") || lowercasePhrase.contains("minute") || lowercasePhrase.contains("min") || lowercasePhrase.contains("h") || lowercasePhrase.contains("m")) {
+                schedulingPhrases.timeOffsets.append(phrase)  // NEW: time offset phrases like "in 2 hours"
             } else if monthNames.contains(where: { lowercasePhrase.contains($0) }) {
                 schedulingPhrases.monthReferences.append(phrase)
             } else if lowercasePhrase.contains("monday") || lowercasePhrase.contains("tuesday") || lowercasePhrase.contains("wednesday") || 
@@ -1120,6 +1309,9 @@ class SharedNLParser {
         
         // Always remove recurrence phrases
         phrasesToRemove.append(contentsOf: schedulingPhrases.recurrence)
+        
+        // Always remove time offsets (in X hours/minutes)
+        phrasesToRemove.append(contentsOf: schedulingPhrases.timeOffsets)
         
         // Always remove times (they're never part of task description)
         phrasesToRemove.append(contentsOf: schedulingPhrases.times)
@@ -1325,6 +1517,7 @@ class SharedNLParser {
         var monthReferences: [String] = []
         var weekdays: [String] = []
         var relativeDates: [String] = []
+        var timeOffsets: [String] = []  // NEW: for "in X hours/minutes"
         var times: [String] = []
         var numericDates: [String] = []
         var recurrence: [String] = []
@@ -1406,10 +1599,10 @@ class SharedNLParser {
         
         // Check for incomplete "in" patterns  
         if lowercaseText.contains(" in ") {
-            let inPattern = "\\bin\\s+(?!\\d+\\s+(day|days|week|weeks|month|months)\\b)\\w+"
+            let inPattern = "\\bin\\s+(?!\\d+\\s*(day|days|week|weeks|month|months|hour|hours|hrs|h|minute|minutes|mins|min|m)\\b)\\w+"
             if let regex = try? NSRegularExpression(pattern: inPattern),
                regex.firstMatch(in: lowercaseText, range: NSRange(location: 0, length: lowercaseText.count)) != nil {
-                return "Invalid relative date format - use 'in X days/weeks/months'"
+                return "Invalid relative date format - use 'in X days/weeks/months/hours/minutes'"
             }
         }
         
@@ -1559,7 +1752,7 @@ class SharedNLParser {
         let dateRegex = try! NSRegularExpression(pattern: "\\s+(on\\s+)?\\d{1,2}[./]\\d{1,2}([./]\\d{4})?\\.?.*", options: .caseInsensitive)
         cleanedText = dateRegex.stringByReplacingMatches(in: cleanedText, options: [], range: NSRange(location: 0, length: cleanedText.count), withTemplate: "")
         
-        let relativeDateRegex = try! NSRegularExpression(pattern: "\\s+(in\\s+\\d+\\s+(day|days|week|weeks|month|months)).*", options: .caseInsensitive)
+        let relativeDateRegex = try! NSRegularExpression(pattern: "\\s+in\\s+\\d+\\s*(day|days|week|weeks|month|months|hour|hours|hrs|h|minute|minutes|mins|min|m)\\b", options: .caseInsensitive)
         cleanedText = relativeDateRegex.stringByReplacingMatches(in: cleanedText, options: [], range: NSRange(location: 0, length: cleanedText.count), withTemplate: "")
         
         let everyRegex = try! NSRegularExpression(pattern: "\\s+(every\\s+\\d+\\s+(day|days|week|weeks|month|months)).*", options: .caseInsensitive)

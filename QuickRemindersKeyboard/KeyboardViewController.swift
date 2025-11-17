@@ -190,15 +190,12 @@ struct WorkingKeyboardView: View {
         }
     }
     
-    private var quickSuggestions: [String] {
-        let defaultSuggestions = [
-            "Call mom tomorrow",
-            "Meeting Monday 10am",
-            "Gym session 6pm",
-            "Pay bills Friday"
-        ]
-        return colorTheme.customQuickIdeas.isEmpty ? defaultSuggestions : colorTheme.customQuickIdeas
-    }
+    // Dynamic quick actions based on available reminder lists
+    @State private var quickActions: [String] = [
+        "list",
+        "move", 
+        "remove"
+    ]
     
     // Fixed consistent height for all views - perfect size
     private var keyboardHeight: CGFloat {
@@ -241,13 +238,14 @@ struct WorkingKeyboardView: View {
             )
         }
         .onAppear {
-            // Sync settings to get latest Quick Ideas from iOS app
-            colorTheme.syncSettings()
-            
             // Request permissions and reload lists to ensure keyboard has access
             reminderManager.requestPermissionManually()
             Task {
                 await reminderManager.reloadReminderLists()
+                // Update quick actions after lists are loaded
+                DispatchQueue.main.async {
+                    self.updateQuickActions()
+                }
             }
         }
     }
@@ -477,6 +475,20 @@ struct WorkingKeyboardView: View {
                                         .font(.system(size: 10))
                                         .foregroundColor(.gray)
                                 }
+                                
+                                // Show recurring indicator under the time (like native Reminders)
+                                if let recurrenceRules = reminder.recurrenceRules, !recurrenceRules.isEmpty,
+                                   let rule = recurrenceRules.first {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "arrow.clockwise")
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.gray)
+                                        
+                                        Text(keyboardControllerRecurrenceText(from: rule))
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.gray)
+                                    }
+                                }
                             }
                             
                             Spacer()
@@ -546,6 +558,20 @@ struct WorkingKeyboardView: View {
                                     Text(formatDate(dueDate))
                                         .font(.system(size: 10))
                                         .foregroundColor(.gray)
+                                }
+                                
+                                // Show recurring indicator under the time (like native Reminders)
+                                if let recurrenceRules = reminder.recurrenceRules, !recurrenceRules.isEmpty,
+                                   let rule = recurrenceRules.first {
+                                    HStack(spacing: 2) {
+                                        Image(systemName: "arrow.clockwise")
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.gray)
+                                        
+                                        Text(keyboardControllerRecurrenceText(from: rule))
+                                            .font(.system(size: 8))
+                                            .foregroundColor(.gray)
+                                    }
                                 }
                             }
                             
@@ -1030,7 +1056,12 @@ struct WorkingKeyboardView: View {
                     .foregroundColor(.white)
                 Spacer()
                 Button("Refresh") {
-                    colorTheme.reloadSettings()
+                    Task {
+                        await reminderManager.reloadReminderLists()
+                        DispatchQueue.main.async {
+                            self.updateQuickActions()
+                        }
+                    }
                 }
                 .font(.system(size: 12))
                 .foregroundColor(colorTheme.primaryColor)
@@ -1038,17 +1069,17 @@ struct WorkingKeyboardView: View {
             .padding(.horizontal, 16)
             .padding(.top, 24) // Increased from 16 to 24 to lower it
             
-            if !quickSuggestions.isEmpty {
+            if !quickActions.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 16) {
-                        ForEach(quickSuggestions.prefix(5), id: \.self) { suggestion in
+                        ForEach(quickActions, id: \.self) { action in
                             Button(action: {
-                                inputText = suggestion
+                                inputText = action
                                 showKeyboard = true
                                 currentView = .keyboard
                                 isFieldFocused = true
                             }) {
-                                Text(suggestion)
+                                Text(action)
                                     .font(.system(size: 14, weight: .medium))
                                     .foregroundColor(.primary)
                                     .multilineTextAlignment(.center)
@@ -1410,6 +1441,22 @@ struct WorkingKeyboardView: View {
         }
     }
     
+    func updateQuickActions() {
+        // Start with base commands
+        var actions = ["list", "move", "remove"]
+        
+        // Add "list [ListName]" for each available list
+        for list in reminderManager.availableLists {
+            let listName = list.title
+            actions.append("list \(listName)")
+        }
+        
+        // Update the quick actions
+        DispatchQueue.main.async {
+            self.quickActions = actions
+        }
+    }
+    
     func searchForRemoval() {
         isSearchingDuplicates = true
         duplicateReminders = []
@@ -1640,6 +1687,23 @@ struct WorkingKeyboardView: View {
         formatter.dateStyle = .short
         formatter.timeStyle = .short
         return formatter.string(from: date)
+    }
+    
+    func keyboardControllerRecurrenceText(from rule: EKRecurrenceRule) -> String {
+        let interval = rule.interval
+        
+        switch rule.frequency {
+        case .daily:
+            return interval == 1 ? "Daily" : "\(interval)d"
+        case .weekly:
+            return interval == 1 ? "Weekly" : "\(interval)w"
+        case .monthly:
+            return interval == 1 ? "Monthly" : "\(interval)m"
+        case .yearly:
+            return interval == 1 ? "Yearly" : "\(interval)y"
+        @unknown default:
+            return "Repeats"
+        }
     }
     
     func getRecurrenceDescription(_ reminder: SharedParsedReminder) -> String {

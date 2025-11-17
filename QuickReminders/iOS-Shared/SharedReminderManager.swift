@@ -139,7 +139,7 @@ class SharedReminderManager: ObservableObject {
         availableLists = eventStore.calendars(for: .reminder)
         
         // Try to restore previously selected list from App Group UserDefaults
-        let sharedDefaults = UserDefaults(suiteName: "group.quickreminders.shared") ?? UserDefaults.standard
+        let sharedDefaults = UserDefaults(suiteName: "group.com.martinkostelka.QuickReminders") ?? UserDefaults.standard
         
         if let savedListID = sharedDefaults.string(forKey: "SelectedListIdentifier"),
            let savedList = availableLists.first(where: { $0.calendarIdentifier == savedListID }) {
@@ -271,7 +271,7 @@ class SharedReminderManager: ObservableObject {
         selectedList = list
         
         // Save to shared UserDefaults for both platforms
-        let sharedDefaults = UserDefaults(suiteName: "group.quickreminders.shared") ?? UserDefaults.standard
+        let sharedDefaults = UserDefaults(suiteName: "group.com.martinkostelka.QuickReminders") ?? UserDefaults.standard
         sharedDefaults.set(list.calendarIdentifier, forKey: "SelectedListIdentifier")
     }
     

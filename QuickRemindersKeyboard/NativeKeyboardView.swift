@@ -684,6 +684,20 @@ struct NativeKeyboardView: View {
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
                                     }
+                                    
+                                    // Show recurring indicator under the time (like native Reminders)
+                                    if let recurrenceRules = reminder.recurrenceRules, !recurrenceRules.isEmpty,
+                                       let rule = recurrenceRules.first {
+                                        HStack(spacing: 2) {
+                                            Image(systemName: "arrow.clockwise")
+                                                .font(.system(size: 8))
+                                                .foregroundColor(.secondary)
+                                            
+                                            Text(keyboardRecurrenceText(from: rule))
+                                                .font(.system(size: 8))
+                                                .foregroundColor(.secondary)
+                                        }
+                                    }
                                 }
                                 
                                 Spacer()
@@ -766,6 +780,20 @@ struct NativeKeyboardView: View {
                                         Text(dueDate, style: .relative)
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
+                                    }
+                                    
+                                    // Show recurring indicator under the time (like native Reminders)
+                                    if let recurrenceRules = reminder.recurrenceRules, !recurrenceRules.isEmpty,
+                                       let rule = recurrenceRules.first {
+                                        HStack(spacing: 2) {
+                                            Image(systemName: "arrow.clockwise")
+                                                .font(.system(size: 8))
+                                                .foregroundColor(.secondary)
+                                            
+                                            Text(keyboardRecurrenceText(from: rule))
+                                                .font(.system(size: 8))
+                                                .foregroundColor(.secondary)
+                                        }
                                     }
                                 }
                                 
@@ -1045,6 +1073,25 @@ struct KeyboardAnimationOverlay: View {
         case .hidden:
             return .clear
         }
+    }
+}
+
+// MARK: - Helper Functions
+
+private func keyboardRecurrenceText(from rule: EKRecurrenceRule) -> String {
+    let interval = rule.interval
+    
+    switch rule.frequency {
+    case .daily:
+        return interval == 1 ? "Daily" : "\(interval)d"
+    case .weekly:
+        return interval == 1 ? "Weekly" : "\(interval)w"
+    case .monthly:
+        return interval == 1 ? "Monthly" : "\(interval)m"
+    case .yearly:
+        return interval == 1 ? "Yearly" : "\(interval)y"
+    @unknown default:
+        return "Repeats"
     }
 }
 

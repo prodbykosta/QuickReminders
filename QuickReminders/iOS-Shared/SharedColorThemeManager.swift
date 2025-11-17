@@ -91,7 +91,7 @@ class SharedColorThemeManager: ObservableObject {
     
     init() {
         // Use App Group UserDefaults for shared settings between main app and keyboard extension
-        self.sharedDefaults = UserDefaults(suiteName: "group.quickreminders.shared") ?? UserDefaults.standard
+        self.sharedDefaults = UserDefaults(suiteName: "group.com.martinkostelka.QuickReminders") ?? UserDefaults.standard
         
         loadSettings()
         setupObservers()
@@ -146,10 +146,9 @@ class SharedColorThemeManager: ObservableObject {
         
         colorHelpersEnabled = sharedDefaults.object(forKey: "ColorHelpersEnabled") as? Bool ?? true
         
-        // Load custom quick ideas
-        if let savedIdeas = sharedDefaults.array(forKey: "CustomQuickIdeas") as? [String] {
-            customQuickIdeas = savedIdeas
-        }
+        // Load custom quick ideas - ALWAYS update to ensure proper loading
+        let savedIdeas = sharedDefaults.array(forKey: "CustomQuickIdeas") as? [String] ?? []
+        customQuickIdeas = savedIdeas
         
         // Load animation settings
         animationsEnabled = sharedDefaults.object(forKey: "AnimationsEnabled") as? Bool ?? true

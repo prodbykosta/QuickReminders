@@ -251,7 +251,7 @@ class SharedSpeechManager: NSObject, ObservableObject {
     
     private func getColorTheme() -> SharedColorThemeManager? {
         // Try to get shared color theme from UserDefaults
-        if let sharedDefaults = UserDefaults(suiteName: "group.quickreminders.shared") {
+        if let sharedDefaults = UserDefaults(suiteName: "group.com.martinkostelka.QuickReminders") {
             let voiceTriggerWords = sharedDefaults.array(forKey: "VoiceTriggerWords") as? [String] ?? ["send", "sent", "done", "go"]
             let theme = SharedColorThemeManager()
             theme.voiceTriggerWords = voiceTriggerWords

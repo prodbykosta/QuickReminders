@@ -1481,6 +1481,20 @@ struct ReminderDuplicateRowView: View {
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+            
+            // Show recurring indicator under the time (like native Reminders)
+            if let recurrenceRules = reminder.recurrenceRules, !recurrenceRules.isEmpty,
+               let rule = recurrenceRules.first {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                    
+                    Text(perfectIOSRecurrenceText(from: rule))
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 12)
@@ -1521,4 +1535,40 @@ extension Color {
         return Color(red: r, green: g, blue: b, opacity: a)
     }
 }
+
+// MARK: - Helper Functions
+
+private func perfectIOSRecurrenceText(from rule: EKRecurrenceRule) -> String {
+    let interval = rule.interval
+    
+    switch rule.frequency {
+    case .daily:
+        if interval == 1 {
+            return "Daily"
+        } else {
+            return "Every \(interval) days"
+        }
+    case .weekly:
+        if interval == 1 {
+            return "Weekly"
+        } else {
+            return "Every \(interval) weeks"
+        }
+    case .monthly:
+        if interval == 1 {
+            return "Monthly"
+        } else {
+            return "Every \(interval) months"
+        }
+    case .yearly:
+        if interval == 1 {
+            return "Yearly"
+        } else {
+            return "Every \(interval) years"
+        }
+    @unknown default:
+        return "Repeats"
+    }
+}
+
 #endif
