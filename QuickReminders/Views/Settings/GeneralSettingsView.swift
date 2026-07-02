@@ -11,6 +11,7 @@ import EventKit
 import Speech
 import AVFoundation
 import AppKit
+import Contacts
 
 struct GeneralSettingsView: View {
     @ObservedObject var reminderManager: ReminderManager
@@ -92,9 +93,9 @@ struct GeneralSettingsView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            
+
             Divider()
-            
+
             // Accessibility Permissions
             VStack(alignment: .leading, spacing: 12) {
                 Text("Global Hotkey Access")
@@ -1227,7 +1228,32 @@ struct GeneralSettingsView: View {
             }
             
             Divider()
-            
+
+            // Features Section
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "star.fill")
+                        .foregroundColor(.purple)
+                        .font(.title2)
+                    Text("Features")
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                }
+
+                VStack(alignment: .leading, spacing: 8) {
+                    // Variable Toggle Feature
+                    Toggle("Enable Variable Toggle", isOn: $colorTheme.enableVariableToggle)
+                        .font(.headline)
+
+                    Text("When enabled, adds a variable toggle button that allows you to override natural language parsing for specific words.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .padding(.leading, 24)
+                }
+            }
+
+            Divider()
+
             // Appearance Section
             AppearanceSettingsSection(colorTheme: colorTheme)
             
@@ -1326,7 +1352,7 @@ struct GeneralSettingsView: View {
         
         // User needs to grant accessibility permissions manually
     }
-    
+
     // MARK: - Speech Recognition Helpers
     
     private func speechStatusText(_ status: SFSpeechRecognizerAuthorizationStatus) -> String {

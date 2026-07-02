@@ -229,28 +229,52 @@ struct iOSContentView: View {
                         }
                         
                         // Permission Warning
-                        if !reminderManager.hasAccess {
+                        if !reminderManager.hasAccess || !speechManager.hasPermissions() {
                             VStack(spacing: 16) {
-                                HStack {
-                                    Image(systemName: "exclamationmark.triangle.fill")
-                                        .foregroundColor(.orange)
-                                        .font(.system(size: 20))
-                                    
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text("Reminders Access Required")
-                                            .font(.system(size: 16, weight: .semibold))
-                                            .foregroundColor(.primary)
-                                        
-                                        Text("Please grant access to create reminders")
-                                            .font(.system(size: 14))
-                                            .foregroundColor(.secondary)
+                                // Reminders Permission
+                                if !reminderManager.hasAccess {
+                                    HStack {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .foregroundColor(.orange)
+                                            .font(.system(size: 20))
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Reminders Access Required")
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundColor(.primary)
+
+                                            Text("Please grant access to create reminders")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(.secondary)
+                                        }
+
+                                        Spacer()
                                     }
-                                    
-                                    Spacer()
                                 }
-                                
-                                Button("Grant Access") {
-                                    reminderManager.requestPermissionManually()
+
+                                // Speech Recognition Permission
+                                if !speechManager.hasPermissions() {
+                                    HStack {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .foregroundColor(.orange)
+                                            .font(.system(size: 20))
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text("Microphone & Speech Recognition Required")
+                                                .font(.system(size: 16, weight: .semibold))
+                                                .foregroundColor(.primary)
+
+                                            Text("Please grant access for voice input")
+                                                .font(.system(size: 14))
+                                                .foregroundColor(.secondary)
+                                        }
+
+                                        Spacer()
+                                    }
+                                }
+
+                                Button("Open QuickReminders Settings") {
+                                    openAppSettings()
                                 }
                                 .font(.system(size: 16, weight: .semibold))
                                 .foregroundColor(.white)
@@ -291,6 +315,7 @@ struct iOSContentView: View {
             SettingsView()
                 .environmentObject(colorTheme)
                 .environmentObject(speechManager)
+                .environmentObject(reminderManager)
         }
         .onAppear {
             // CRITICAL: Request reminder permissions on iOS app start
@@ -350,10 +375,12 @@ struct iOSContentView: View {
     
     private func startVoiceRecording() {
         guard speechManager.hasPermissions() else {
-            animationManager.showError("❌ Microphone permission required")
+            // Request permissions when mic button is tapped
+            speechManager.requestPermissions()
+            animationManager.showError("🎤 Please grant microphone access")
             return
         }
-        
+
         isVoiceRecording = true
         animationManager.showVoiceRecording()
         
@@ -396,6 +423,12 @@ struct iOSContentView: View {
     
     private func saveRecentReminders() {
         UserDefaults.standard.set(recentReminders, forKey: "RecentReminders")
+    }
+
+    private func openAppSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
     }
 }
 #endif

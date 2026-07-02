@@ -1,0 +1,80 @@
+QuickReminders: The Fastest Way to Create Reminders
+
+Transform how you capture tasks and reminders with QuickReminders - the fastest, most intuitive reminder app for macOS and iOS. Simply type or speak naturally, and watch your thoughts become perfectly organized reminders in Apple's Reminders (plus Google Calendar & Tasks on iOS).
+
+
+Advanced Voice Commands with Smart Auto-Send
+Revolutionary voice input with intelligent trigger word system. Say "pick up groceries tomorrow 3PM send" and QuickReminders automatically processes your command without touching a button. Customize your own trigger words like "done," "go," "submit," or "sent" in settings.
+
+
+Lightning-Fast Natural Language Processing
+No more fumbling with date pickers, time selectors, or complex forms. Just type or speak naturally:
+• "Coffee with Shanel next Monday 2PM"
+• "Doctor appointment tomorrow at 9:30AM"
+• "Project deadline next Friday"
+• "Meeting tomorrow afternoon"
+
+
+Key Features:
+
+What's New!
+• AI Mode — speak in 14 languages, AI transforms it into a perfectly timed reminder. Gemini, Groq & self-hosted
+• Google Calendar & Google Tasks integration — sync reminders with your Google account
+• Location, Contacts & Notes
+• Urgent priority
+• Variable text toggle
+• Siri & Control Center shortcuts
+
+Universal Access Across All Apps
+• macOS: Access QuickReminders from anywhere with a customizable keyboard shortcut. The floating window appears instantly, lets you create your reminder, then disappears.
+• iOS: Custom keyboard extension provides QuickReminders functionality system-wide from any app, plus a beautiful native iOS app.
+
+Recurring Reminders
+Set up repeating tasks with natural language:
+• "Pay rent 10/10 every month"
+• "Dentist appointment on Friday every 6 months"
+• "Team sync Monday every 2 weeks"
+• "Workout tomorrow 7am every day"
+
+Voice Recognition & Microphone Management
+Full speech-to-text functionality with proper system permission handling. Works seamlessly with privacy settings on both macOS and iOS.
+
+Intelligent Duplicate Detection
+Smart algorithms detect duplicate reminders and offer resolution options, preventing clutter.
+
+Move and Remove Commands
+Manage existing reminders with natural language:
+• "Move coffee meeting to next Tuesday"
+• "Remove dentist appointment"
+
+
+Perfect For:
+• Busy professionals needing rapid task capture
+• Students managing assignment schedules
+• Parents juggling family activities
+• Users preferring voice input over typing
+• People wanting seamless Apple ecosystem integration
+
+
+Customization & Settings:
+• macOS: Customizable global hotkey combinations and floating window behavior
+• iOS: Custom keyboard extension with QuickReminders functionality
+• Universal: Personalized voice trigger words, theme options, and time preferences
+• Accessibility features including high contrast support
+
+
+Privacy & Security:
+QuickReminders works directly with Apple's Reminders & Calendar apps (plus Google Calendar & Tasks on iOS) - your data remains in their secure ecosystems. Voice processing respects system privacy preferences. The app requests only essential permissions: Reminders access for core functionality, and optional microphone access for voice features.
+
+
+Smart Technology:
+Advanced natural language processing understands context, relative dates ("tomorrow," "next week"), and time formats. Handles various input styles gracefully with helpful feedback.
+
+
+Native Platform Integration
+• macOS: Full system integration with floating window design, automatic dark mode support, and native materials
+• iOS: Beautiful native interface with smooth animations and system keyboard integration
+
+
+Experience Natural Reminder Creation
+Whether you're capturing a quick grocery item, scheduling an important meeting, or setting up monthly recurring tasks, QuickReminders adapts to how you naturally think and speak. No learning curve - just type or speak as you would to another person.

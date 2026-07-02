@@ -20,6 +20,26 @@ No more fumbling with date pickers, time selectors, or complex forms! Just type 
 ## 🎤 Advanced Voice Commands with Smart Auto-Send
 Revolutionary voice input with intelligent trigger word system! Say "pick up groceries tomorrow 3PM send" and QuickReminders automatically processes your command without touching a button. Customize your own trigger words like "done," "go," "submit," or "sent" in settings. The app recognizes variations and handles speech recognition restart seamlessly.
 
+## 🗣️ Siri Integration (NEW! - iOS Only)
+Create reminders with Siri from anywhere on your iPhone or iPad! Simply say **"Create a reminder in QuickReminders"** to Siri, then speak your reminder naturally. All natural language features work with Siri:
+
+- **"Call dentist Friday at 2PM"** → Creates reminder with date and time
+- **"Gym session Monday Wednesday Friday every week"** → Creates recurring reminder
+- **"Project deadline December 15th 2026"** → Handles future dates with years
+- **"Check oven in 30 minutes"** → Creates time-based reminders
+
+Works on iPhone and iPad! See [SIRI_INTEGRATION.md](SIRI_INTEGRATION.md) for detailed usage guide.
+
+## 🎛️ Control Center Widget (NEW! - iOS 18+)
+Quick access to QuickReminders right from Control Center! Add the **"Quick Reminder"** widget for instant access with just one tap. Perfect for:
+
+- **One-tap access** - Opens QuickReminders instantly from anywhere
+- **Lock screen availability** - Access even when phone is locked
+- **No hunting for the app** - Always one swipe away
+- **Ultra-fast** - Immediate app launch from Control Center
+
+Swipe down, tap the bell, create your reminder! See [CONTROL_CENTER_WIDGET_SETUP.md](CONTROL_CENTER_WIDGET_SETUP.md) for setup instructions.
+
 ## ✨ Key Features:
 
 **🖥️ macOS: Spotlight-Style Global Access**

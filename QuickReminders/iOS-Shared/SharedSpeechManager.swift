@@ -43,17 +43,22 @@ class SharedSpeechManager: NSObject, ObservableObject {
     // MARK: - Setup
     private func setupSpeechRecognition() {
         speechRecognizer?.delegate = self
-        
+
         // Check if speech recognition is available
         guard let speechRecognizer = speechRecognizer, speechRecognizer.isAvailable else {
             self.isAvailable = false
             self.errorMessage = "Speech recognition not available"
             return
         }
-        
-        SFSpeechRecognizer.requestAuthorization { @Sendable authStatus in
-            Task { @MainActor in
-                self.updateAvailability(authStatus)
+
+        // Request BOTH microphone and speech recognition permissions
+        // Request microphone first
+        AVCaptureDevice.requestAccess(for: .audio) { granted in
+            // Then request speech recognition
+            SFSpeechRecognizer.requestAuthorization { @Sendable authStatus in
+                Task { @MainActor in
+                    self.updateAvailability(authStatus)
+                }
             }
         }
     }
@@ -81,6 +86,13 @@ class SharedSpeechManager: NSObject, ObservableObject {
     
     // MARK: - Public Methods
     
+    func setLocale(_ localeIdentifier: String) {
+        let newRecognizer = SFSpeechRecognizer(locale: Locale(identifier: localeIdentifier))
+        speechRecognizer = newRecognizer
+        speechRecognizer?.delegate = self
+        isAvailable = newRecognizer?.isAvailable ?? false
+    }
+
     func startListening(onUpdate: ((String) -> Void)? = nil, completion: @escaping (String) -> Void) {
         guard isAvailable else {
             errorMessage = "Speech recognition not available"
@@ -174,8 +186,8 @@ class SharedSpeechManager: NSObject, ObservableObject {
             errorMessage = error.localizedDescription
             
             // Check if it's a recoverable error
-            if (error as NSError).code == 216 { // Speech recognition timeout
-                // Restart automatically for timeout
+            if (error as NSError).code == 216 && isListening { // Speech recognition timeout
+                // Only restart if we're still supposed to be listening
                 restart()
                 return
             } else {
@@ -246,15 +258,23 @@ class SharedSpeechManager: NSObject, ObservableObject {
         let microphoneStatus = AVCaptureDevice.authorizationStatus(for: .audio)
         return speechStatus == .authorized && microphoneStatus == .authorized
     }
-    
+
+    func hasMicrophonePermission() -> Bool {
+        return AVCaptureDevice.authorizationStatus(for: .audio) == .authorized
+    }
+
+    func hasSpeechRecognitionPermission() -> Bool {
+        return SFSpeechRecognizer.authorizationStatus() == .authorized
+    }
+
     // MARK: - Voice Trigger Support
     
     private func getColorTheme() -> SharedColorThemeManager? {
-        // Try to get shared color theme from UserDefaults
         if let sharedDefaults = UserDefaults(suiteName: "group.com.martinkostelka.QuickReminders") {
-            let voiceTriggerWords = sharedDefaults.array(forKey: "VoiceTriggerWords") as? [String] ?? ["send", "sent", "done", "go"]
             let theme = SharedColorThemeManager()
-            theme.voiceTriggerWords = voiceTriggerWords
+            theme.voiceTriggerWords = sharedDefaults.array(forKey: "VoiceTriggerWords") as? [String] ?? ["send", "sent", "done", "go"]
+            theme.aiModeEnabled = sharedDefaults.bool(forKey: "AIModeEnabled")
+            theme.aiVoiceTriggerWord = sharedDefaults.string(forKey: "AIVoiceTriggerWord") ?? ""
             return theme
         }
         return nil

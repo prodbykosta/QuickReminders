@@ -1,10 +1,34 @@
-#if os(iOS)
+#if os(iOS) || os(watchOS)
 import Foundation
 import EventKit
 
 // MARK: - SharedParsedReminder struct for Shared NLParser
 
+public struct ParsedVariable {
+    public let text: String
+    public let range: NSRange
+    public let type: VariableType
+    public var isOverriddenAsText: Bool
+
+    public enum VariableType {
+        case date
+        case time
+        case number
+        case contact
+        case location
+        case recurrence
+    }
+
+    public init(text: String, range: NSRange, type: VariableType, isOverriddenAsText: Bool = false) {
+        self.text = text
+        self.range = range
+        self.type = type
+        self.isOverriddenAsText = isOverriddenAsText
+    }
+}
+
 public struct SharedParsedReminder {
+    // Existing fields
     public let title: String
     public let dueDate: Date?
     public let isRecurring: Bool
@@ -13,8 +37,47 @@ public struct SharedParsedReminder {
     public let recurrenceEndDate: Date?
     public let isValid: Bool
     public let errorMessage: String?
-    
-    public init(title: String, dueDate: Date?, isRecurring: Bool = false, recurrenceInterval: Int? = nil, recurrenceFrequency: EKRecurrenceFrequency? = nil, recurrenceEndDate: Date? = nil, isValid: Bool = true, errorMessage: String? = nil) {
+
+    // NEW: Contact support
+    public let contactName: String?
+    public let contactIdentifier: String?
+
+    // NEW: Location support
+    public let locationName: String?
+    public let locationAddress: String?
+    public let locationCoordinates: (latitude: Double, longitude: Double)?
+    public let locationProximity: EKAlarmProximity  // .enter (arriving) or .leave (leaving)
+
+    // NEW: Urgent/alarm support
+    public let isUrgent: Bool
+    public let alarmOffset: TimeInterval?
+
+    // NEW: Notes support
+    public let notes: String?
+
+    // NEW: Variable tracking for toggle feature
+    public let parsedVariables: [ParsedVariable]
+
+    public init(
+        title: String,
+        dueDate: Date?,
+        isRecurring: Bool = false,
+        recurrenceInterval: Int? = nil,
+        recurrenceFrequency: EKRecurrenceFrequency? = nil,
+        recurrenceEndDate: Date? = nil,
+        isValid: Bool = true,
+        errorMessage: String? = nil,
+        contactName: String? = nil,
+        contactIdentifier: String? = nil,
+        locationName: String? = nil,
+        locationAddress: String? = nil,
+        locationCoordinates: (latitude: Double, longitude: Double)? = nil,
+        locationProximity: EKAlarmProximity = .enter,
+        isUrgent: Bool = false,
+        alarmOffset: TimeInterval? = nil,
+        notes: String? = nil,
+        parsedVariables: [ParsedVariable] = []
+    ) {
         self.title = title
         self.dueDate = dueDate
         self.isRecurring = isRecurring
@@ -23,6 +86,16 @@ public struct SharedParsedReminder {
         self.recurrenceEndDate = recurrenceEndDate
         self.isValid = isValid
         self.errorMessage = errorMessage
+        self.contactName = contactName
+        self.contactIdentifier = contactIdentifier
+        self.locationName = locationName
+        self.locationAddress = locationAddress
+        self.locationCoordinates = locationCoordinates
+        self.locationProximity = locationProximity
+        self.isUrgent = isUrgent
+        self.alarmOffset = alarmOffset
+        self.notes = notes
+        self.parsedVariables = parsedVariables
     }
 }
 
@@ -236,30 +309,77 @@ class SharedNLParser {
         ]
     }
     
-    func parseReminderText(_ text: String) -> SharedParsedReminder {
+    // Convert word numbers to digits (e.g., "five" -> "5")
+    private func convertWordNumbersToDigits(_ text: String) -> String {
+        let numberWords: [String: String] = [
+            "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
+            "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+            "eleven": "11", "twelve": "12", "thirteen": "13", "fourteen": "14", "fifteen": "15",
+            "sixteen": "16", "seventeen": "17", "eighteen": "18", "nineteen": "19", "twenty": "20",
+            "thirty": "30", "forty": "40", "fifty": "50", "sixty": "60"
+        ]
+
+        var result = text
+        for (word, digit) in numberWords {
+            // Use word boundaries to avoid partial matches
+            let pattern = "\\b\(word)\\b"
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                result = regex.stringByReplacingMatches(in: result, options: [], range: NSRange(location: 0, length: (result as NSString).length), withTemplate: digit)
+            }
+        }
+        return result
+    }
+
+    func parseReminderText(_ text: String, convertWordNumbers: Bool = false) -> SharedParsedReminder {
+        // Convert word numbers to digits first (only if enabled - mainly for Siri)
+        let normalizedText = convertWordNumbers ? convertWordNumbersToDigits(text) : text
+
+        // NEW: Parse all new components
+        let parsedVariables: [ParsedVariable] = []
+
+        // NLP DISABLED for contact, location, urgent - use buttons only!
+        let contactName: String? = nil
+
+        let locationName: String? = nil
+        let locationProximity: EKAlarmProximity = .enter
+
+        let isUrgent = false
+        let alarmOffset: TimeInterval? = nil
+        let (notes, _) = parseNotes(from: normalizedText)
+
         // Validate input
-        let validationResult = validateInput(text)
+        let validationResult = validateInput(normalizedText)
         if !validationResult.isValid {
             return SharedParsedReminder(
-                title: extractTitle(from: text),
+                title: extractTitle(from: normalizedText),
                 dueDate: nil,
                 isRecurring: false,
                 recurrenceInterval: nil,
                 recurrenceFrequency: nil,
                 recurrenceEndDate: nil,
                 isValid: false,
-                errorMessage: validationResult.errorMessage
+                errorMessage: validationResult.errorMessage,
+                contactName: contactName,
+                contactIdentifier: nil,
+                locationName: locationName,
+                locationAddress: nil,
+                locationCoordinates: nil,
+                locationProximity: locationProximity,
+                isUrgent: isUrgent,
+                alarmOffset: alarmOffset,
+                notes: notes,
+                parsedVariables: parsedVariables
             )
         }
-        
-        let lowercaseText = text.lowercased()
-        let title = extractTitle(from: text)
-        
+
+        let lowercaseText = normalizedText.lowercased()
+        let title = extractTitle(from: normalizedText)
+
         // Try smart parsing first
         let smartResult = smartParse(from: lowercaseText)
         if smartResult.dueDate != nil {
             // Extract smart title that only removes detected scheduling phrases
-            let smartTitle = extractSmartTitle(from: text, detectedPhrases: smartResult.detectedPhrases)
+            let smartTitle = extractSmartTitle(from: normalizedText, detectedPhrases: smartResult.detectedPhrases)
             return SharedParsedReminder(
                 title: smartTitle,
                 dueDate: smartResult.dueDate,
@@ -268,16 +388,26 @@ class SharedNLParser {
                 recurrenceFrequency: smartResult.frequency,
                 recurrenceEndDate: smartResult.endDate,
                 isValid: true,
-                errorMessage: nil
+                errorMessage: nil,
+                contactName: contactName,
+                contactIdentifier: nil,
+                locationName: locationName,
+                locationAddress: nil,
+                locationCoordinates: nil,
+                locationProximity: locationProximity,
+                isUrgent: isUrgent,
+                alarmOffset: alarmOffset,
+                notes: notes,
+                parsedVariables: parsedVariables
             )
         }
-        
+
         // Fall back to original parsing
         let (dueDate, isRecurring, interval, frequency, endDate) = extractDueDateWithRecurrence(from: lowercaseText)
-        
+
         // Validate parsed result
         let parsedValidation = validateParsedResult(title: title, dueDate: dueDate, isRecurring: isRecurring, interval: interval, frequency: frequency)
-        
+
         return SharedParsedReminder(
             title: title,
             dueDate: dueDate,
@@ -286,7 +416,17 @@ class SharedNLParser {
             recurrenceFrequency: frequency,
             recurrenceEndDate: endDate,
             isValid: parsedValidation.isValid,
-            errorMessage: parsedValidation.errorMessage
+            errorMessage: parsedValidation.errorMessage,
+            contactName: contactName,
+            contactIdentifier: nil,
+            locationName: locationName,
+            locationAddress: nil,
+            locationCoordinates: nil,
+            locationProximity: locationProximity,
+            isUrgent: isUrgent,
+            alarmOffset: alarmOffset,
+            notes: notes,
+            parsedVariables: parsedVariables
         )
     }
     
@@ -347,30 +487,40 @@ class SharedNLParser {
             
             // Determine start date
             if let datePattern = datePatternInfo {
-                // Use specific date pattern (10.23, 12/15, etc.)
+                // Use specific date pattern (10.23, 12/15, 12.12.2026, etc.)
                 var components = DateComponents()
-                components.year = calendar.component(.year, from: now)
+                // Use the provided year if available, otherwise use current year
+                components.year = datePattern.year ?? calendar.component(.year, from: now)
                 components.month = datePattern.month
                 components.day = datePattern.day
                 components.hour = hour
                 components.minute = minute
-                
+
                 if let targetDate = calendar.date(from: components) {
-                    // If the date is in the past, move to next year
-                    startDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                    // If the date is in the past AND no year was specified, move to next year
+                    if datePattern.year == nil && targetDate < now {
+                        startDate = calendar.date(byAdding: .year, value: 1, to: targetDate)
+                    } else {
+                        startDate = targetDate
+                    }
                 }
             } else if let monthDay = monthDayInfo {
-                // Use natural language month pattern (October 15th, 15th of Oct, etc.)
+                // Use natural language month pattern (October 15th 2026, dec 12 2026, etc.)
                 var components = DateComponents()
-                components.year = calendar.component(.year, from: now)
+                // Use the provided year if available, otherwise use current year
+                components.year = monthDay.year ?? calendar.component(.year, from: now)
                 components.month = monthDay.month
                 components.day = monthDay.day
                 components.hour = hour
                 components.minute = minute
-                
+
                 if let targetDate = calendar.date(from: components) {
-                    // If the date is in the past, move to next year
-                    startDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                    // If the date is in the past AND no year was specified, move to next year
+                    if monthDay.year == nil && targetDate < now {
+                        startDate = calendar.date(byAdding: .year, value: 1, to: targetDate)
+                    } else {
+                        startDate = targetDate
+                    }
                 }
             } else if let weekday = weekdayInfo {
                 // Calculate target date based on weekday info
@@ -455,16 +605,23 @@ class SharedNLParser {
                 hour = time.hour
                 minute = time.minute
             }
-            
+
             var components = DateComponents()
-            components.year = calendar.component(.year, from: now)
+            // Use the provided year if available, otherwise use current year
+            components.year = datePattern.year ?? calendar.component(.year, from: now)
             components.month = datePattern.month
             components.day = datePattern.day
             components.hour = hour
             components.minute = minute
-            
+
             if let targetDate = calendar.date(from: components) {
-                let finalDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                // If the date is in the past AND no year was specified, move to next year
+                let finalDate: Date?
+                if datePattern.year == nil && targetDate < now {
+                    finalDate = calendar.date(byAdding: .year, value: 1, to: targetDate)
+                } else {
+                    finalDate = targetDate
+                }
                 return (finalDate, false, nil, nil, nil, detectedPhrases)
             }
         } else if let monthDay = monthDayInfo {
@@ -474,16 +631,23 @@ class SharedNLParser {
                 hour = time.hour
                 minute = time.minute
             }
-            
+
             var components = DateComponents()
-            components.year = calendar.component(.year, from: now)
+            // Use the provided year if available, otherwise use current year
+            components.year = monthDay.year ?? calendar.component(.year, from: now)
             components.month = monthDay.month
             components.day = monthDay.day
             components.hour = hour
             components.minute = minute
-            
+
             if let targetDate = calendar.date(from: components) {
-                let finalDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                // If the date is in the past AND no year was specified, move to next year
+                let finalDate: Date?
+                if monthDay.year == nil && targetDate < now {
+                    finalDate = calendar.date(byAdding: .year, value: 1, to: targetDate)
+                } else {
+                    finalDate = targetDate
+                }
                 return (finalDate, false, nil, nil, nil, detectedPhrases)
             }
         } else if let weekday = weekdayInfo {
@@ -1047,8 +1211,8 @@ class SharedNLParser {
         // Check for "in X hours/minutes" patterns (NEW)
         if text.contains("in") {
             let timePatterns = [
-                ("in\\s+(\\d+)\\s*(?:hours?|hrs?|h)\\b", "hours"),
-                ("in\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)\\b", "minutes")
+                ("\\bin\\s+(\\d+)\\s*(?:hours?|hrs?|h)\\b", "hours"),
+                ("\\bin\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)\\b", "minutes")
             ]
             
             var detectedHours: Int? = nil
@@ -1089,9 +1253,9 @@ class SharedNLParser {
         if text.contains("in") && (text.contains("day") || text.contains("week") || text.contains("month")) {
             // Use regex only for number extraction, not for detection
             let inPatterns = [
-                ("in\\s+(\\d+)\\s+days?", 1),     // "in 3 days" -> multiply by 1
-                ("in\\s+(\\d+)\\s+weeks?", 7),    // "in 2 weeks" -> multiply by 7
-                ("in\\s+(\\d+)\\s+months?", 30)   // "in 1 month" -> multiply by 30
+                ("\\bin\\s+(\\d+)\\s+days?", 1),     // "in 3 days" -> multiply by 1
+                ("\\bin\\s+(\\d+)\\s+weeks?", 7),    // "in 2 weeks" -> multiply by 7
+                ("\\bin\\s+(\\d+)\\s+months?", 30)   // "in 1 month" -> multiply by 30
             ]
             
             for (pattern, multiplier) in inPatterns {
@@ -1132,31 +1296,43 @@ class SharedNLParser {
         return (nil, nil)
     }
     
-    private func detectDatePattern(in text: String, detectedPhrases: inout [String]) -> (month: Int, day: Int)? {
-        // Look for date patterns like "10.23", "12/15", "10/26", etc.
+    private func detectDatePattern(in text: String, detectedPhrases: inout [String]) -> (month: Int, day: Int, year: Int?)? {
+        // Look for date patterns like "10.23", "12/15", "10/26", "12.12.2026", etc.
         let datePatterns = [
-            "\\b(\\d{1,2})[./](\\d{1,2})\\b"
+            "\\b(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\b",  // With year: 12.12.2026
+            "\\b(\\d{1,2})[./](\\d{1,2})\\b"  // Without year: 12.12
         ]
-        
+
         for pattern in datePatterns {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
                let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
-                
+
                 let matchedText = String(text[Range(match.range, in: text)!])
                 detectedPhrases.append(matchedText)
-                
+
                 let firstValue = Int(String(text[Range(match.range(at: 1), in: text)!])) ?? 0
                 let secondValue = Int(String(text[Range(match.range(at: 2), in: text)!])) ?? 0
-                
+
+                // Extract year if present (3rd capture group)
+                var year: Int? = nil
+                if match.numberOfRanges > 3 {
+                    let yearRange = match.range(at: 3)
+                    if yearRange.location != NSNotFound {
+                        year = Int(String(text[Range(yearRange, in: text)!]))
+                    }
+                }
+
                 // Use existing parseDateComponents function to handle MM/DD vs DD/MM format
-                return parseDateComponents(firstValue: firstValue, secondValue: secondValue)
+                if let dateComponents = parseDateComponents(firstValue: firstValue, secondValue: secondValue) {
+                    return (dateComponents.month, dateComponents.day, year)
+                }
             }
         }
-        
+
         return nil
     }
     
-    private func detectMonthDayPattern(in text: String, detectedPhrases: inout [String]) -> (month: Int, day: Int)? {
+    private func detectMonthDayPattern(in text: String, detectedPhrases: inout [String]) -> (month: Int, day: Int, year: Int?)? {
         // Month names mapping
         let monthMap: [String: Int] = [
             "january": 1, "jan": 1,
@@ -1172,74 +1348,96 @@ class SharedNLParser {
             "november": 11, "nov": 11,
             "december": 12, "dec": 12
         ]
-        
-        // Pattern 1: "October 15th", "on October 15", "Oct 23rd"
+
+        // Pattern 1: "October 15th 2026", "december 12 2026", "Dec 12th 2026" (WITH YEAR)
+        let monthDayYearPatterns = [
+            "\\b(on\\s+)?(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\s+(\\d{1,2})(?:st|nd|rd|th)?[,\\s]+(\\d{4})\\b"
+        ]
+
+        for pattern in monthDayYearPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+
+                let matchedText = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedText)
+
+                let monthName = String(text[Range(match.range(at: 2), in: text)!]).lowercased()
+                let dayValue = Int(String(text[Range(match.range(at: 3), in: text)!])) ?? 0
+                let yearValue = Int(String(text[Range(match.range(at: 4), in: text)!]))
+
+                if let month = monthMap[monthName], dayValue >= 1 && dayValue <= 31 {
+                    return (month: month, day: dayValue, year: yearValue)
+                }
+            }
+        }
+
+        // Pattern 2: "October 15th", "on October 15", "Oct 23rd" (NO YEAR)
         let monthDayPatterns = [
             "\\b(on\\s+)?(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b"
         ]
-        
+
         for pattern in monthDayPatterns {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
                let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
-                
+
                 let matchedText = String(text[Range(match.range, in: text)!])
                 detectedPhrases.append(matchedText)
-                
+
                 let monthName = String(text[Range(match.range(at: 2), in: text)!]).lowercased()
                 let dayValue = Int(String(text[Range(match.range(at: 3), in: text)!])) ?? 0
-                
+
                 if let month = monthMap[monthName], dayValue >= 1 && dayValue <= 31 {
-                    return (month: month, day: dayValue)
+                    return (month: month, day: dayValue, year: nil)
                 }
             }
         }
         
-        // Pattern 2: "15th of October", "on 23rd of Oct", "15 of October"
+        // Pattern 3: "15th of October", "on 23rd of Oct", "15 of October"
         let dayMonthPatterns = [
             "\\b(on\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+of\\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\b"
         ]
-        
+
         for pattern in dayMonthPatterns {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
                let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
-                
+
                 let matchedText = String(text[Range(match.range, in: text)!])
                 detectedPhrases.append(matchedText)
-                
+
                 let dayValue = Int(String(text[Range(match.range(at: 2), in: text)!])) ?? 0
                 let monthName = String(text[Range(match.range(at: 3), in: text)!]).lowercased()
-                
+
                 if let month = monthMap[monthName], dayValue >= 1 && dayValue <= 31 {
-                    return (month: month, day: dayValue)
+                    return (month: month, day: dayValue, year: nil)
                 }
             }
         }
-        
-        // Pattern 3: "15th of this month", "on 23rd of next month"
+
+        // Pattern 4: "15th of this month", "on 23rd of next month"
         let relativeMonthPatterns = [
             "\\b(on\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+of\\s+(this|next)\\s+month\\b"
         ]
-        
+
         for pattern in relativeMonthPatterns {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
                let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
-                
+
                 let matchedText = String(text[Range(match.range, in: text)!])
                 detectedPhrases.append(matchedText)
-                
+
                 let dayValue = Int(String(text[Range(match.range(at: 2), in: text)!])) ?? 0
                 let monthContext = String(text[Range(match.range(at: 3), in: text)!]).lowercased()
-                
+
                 if dayValue >= 1 && dayValue <= 31 {
                     let calendar = Calendar.current
                     let currentMonth = calendar.component(.month, from: Date())
-                    
+
                     let targetMonth = monthContext == "this" ? currentMonth : (currentMonth % 12) + 1
-                    return (month: targetMonth, day: dayValue)
+                    return (month: targetMonth, day: dayValue, year: nil)
                 }
             }
         }
-        
+
         return nil
     }
     
@@ -1597,9 +1795,9 @@ class SharedNLParser {
             }
         }
         
-        // Check for incomplete "in" patterns  
+        // Check for incomplete "in" patterns (only when followed by a number)
         if lowercaseText.contains(" in ") {
-            let inPattern = "\\bin\\s+(?!\\d+\\s*(day|days|week|weeks|month|months|hour|hours|hrs|h|minute|minutes|mins|min|m)\\b)\\w+"
+            let inPattern = "\\bin\\s+\\d+\\s+(?!(day|days|week|weeks|month|months|hour|hours|hrs|h|minute|minutes|mins|min|m)\\b)\\w+"
             if let regex = try? NSRegularExpression(pattern: inPattern),
                regex.firstMatch(in: lowercaseText, range: NSRange(location: 0, length: lowercaseText.count)) != nil {
                 return "Invalid relative date format - use 'in X days/weeks/months/hours/minutes'"
@@ -2699,7 +2897,225 @@ class SharedNLParser {
         default: return .daily
         }
     }
-    
+
+    // MARK: - Contact Parsing
+
+    private func parseContact(from text: String) -> (name: String?, range: NSRange?) {
+        let contactPatterns = [
+            "(?:call|text|meet with|email|message|contact)\\s+([A-Z][a-z]+(?:\\s+[A-Z][a-z]+)?)",
+            "with\\s+([A-Z][a-z]+(?:\\s+[A-Z][a-z]+)?)",
+            "(?:tell|remind|ask)\\s+([A-Z][a-z]+(?:\\s+[A-Z][a-z]+)?)"
+        ]
+
+        for pattern in contactPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: []),
+               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+               match.numberOfRanges > 1 {
+                let nameRange = match.range(at: 1)
+                if let range = Range(nameRange, in: text) {
+                    return (String(text[range]), nameRange)
+                }
+            }
+        }
+
+        return (nil, nil)
+    }
+
+    // MARK: - Location Parsing
+
+    private func parseLocation(from text: String) -> (location: String?, proximity: EKAlarmProximity, range: NSRange?) {
+        // When Location NLP is enabled, ONLY match saved locations!
+        guard colorTheme?.enableLocationNLP == true else {
+            return (nil, .enter, nil)
+        }
+
+        let locationPatterns = [
+            "(?:at|in|on|near|by)\\s+([A-Z][a-zA-Z\\s]+(?:Street|Avenue|Road|Park|Cafe|Restaurant|Store|Building)?)",
+            "meeting at\\s+([A-Z][a-zA-Z\\s]+)",
+            "go to\\s+([A-Z][a-zA-Z\\s]+)",
+            "arriving at\\s+([A-Z][a-zA-Z\\s]+)",
+            "when I arrive at\\s+([A-Z][a-zA-Z\\s]+)",
+            "leaving\\s+([A-Z][a-zA-Z\\s]+)",
+            "when I leave\\s+([A-Z][a-zA-Z\\s]+)"
+        ]
+
+        let lowercased = text.lowercased()
+
+        // Determine proximity based on keywords
+        let proximity: EKAlarmProximity
+        if lowercased.contains("leaving") || lowercased.contains("when i leave") || lowercased.contains("when leaving") {
+            proximity = .leave
+        } else {
+            proximity = .enter  // Default to arriving
+        }
+
+        for pattern in locationPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: []),
+               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+               match.numberOfRanges > 1 {
+                let locationRange = match.range(at: 1)
+                if let range = Range(locationRange, in: text) {
+                    let locationText = String(text[range])
+
+                    // IMPORTANT: Check if this location exists in saved locations!
+                    // (This check would need SavedLocationsManager reference)
+                    // For now, return it - we'll validate against saved locations in the UI
+
+                    return (locationText, proximity, locationRange)
+                }
+            }
+        }
+
+        return (nil, .enter, nil)
+    }
+
+    // MARK: - Urgent/Alarm Parsing
+
+    private func parseUrgent(from text: String) -> (isUrgent: Bool, alarmOffset: TimeInterval?, range: NSRange?) {
+        let urgentPatterns: [String: (Bool, TimeInterval)] = [
+            "urgent(?:ly)?": (true, -300.0), // 5 min before
+            "important": (true, -300.0),
+            "critical": (true, -300.0),
+            "alarm": (true, 0.0), // at due time
+            "alert me": (true, 0.0),
+            "wake me": (true, 0.0),
+            "don't forget": (true, -900.0) // 15 min before
+        ]
+
+        let lowercased = text.lowercased()
+
+        for (keyword, (isUrgent, offset)) in urgentPatterns {
+            if let range = lowercased.range(of: keyword) {
+                let nsRange = NSRange(range, in: text)
+                return (isUrgent, offset, nsRange)
+            }
+        }
+
+        return (false, nil, nil)
+    }
+
+    // MARK: - Notes Parsing
+
+    private func parseNotes(from text: String) -> (notes: String?, range: NSRange?) {
+        // Check for explicit note markers
+        let notePatterns = [
+            "note:\\s*(.+)",
+            "notes:\\s*(.+)",
+            "details:\\s*(.+)",
+            "description:\\s*(.+)"
+        ]
+
+        for pattern in notePatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: [.caseInsensitive]),
+               let match = regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)),
+               match.numberOfRanges > 1 {
+                let notesRange = match.range(at: 1)
+                if let range = Range(notesRange, in: text) {
+                    return (String(text[range]), notesRange)
+                }
+            }
+        }
+
+        return (nil, nil)
+    }
+
+    // MARK: - Title Extraction Helper
+
+    private func extractCleanTitle(from text: String, removing ranges: [NSRange]) -> String {
+        var result = text
+
+        // Sort ranges in reverse order to avoid index shifting
+        let sortedRanges = ranges.sorted { $0.location > $1.location }
+
+        for range in sortedRanges {
+            if let swiftRange = Range(range, in: result) {
+                result.removeSubrange(swiftRange)
+            }
+        }
+
+        return result.trimmingCharacters(in: .whitespaces)
+    }
+
+    // MARK: - Variable Extraction for Toggle Feature
+
+    func extractVariables(from text: String) -> [ParsedVariable] {
+        var variables: [ParsedVariable] = []
+        let nsText = text as NSString
+        let shortcutsOn = colorTheme?.shortcutsEnabled ?? true
+
+        // Helper to add matches without overlapping existing variable ranges
+        func addMatches(pattern: String, type: ParsedVariable.VariableType) {
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return }
+            let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
+            for match in matches {
+                let overlaps = variables.contains { existing in
+                    NSIntersectionRange(existing.range, match.range).length > 0
+                }
+                if !overlaps {
+                    variables.append(ParsedVariable(
+                        text: nsText.substring(with: match.range),
+                        range: match.range,
+                        type: type,
+                        isOverriddenAsText: false
+                    ))
+                }
+            }
+        }
+
+        // Extract command keywords at start of text
+        let commandPattern = shortcutsOn ?
+            "^(mv|rm|move|remove|delete|reschedule|list|ls)\\b" :
+            "^(move|remove|delete|reschedule|list)\\b"
+        addMatches(pattern: commandPattern, type: .date)
+
+        // Extract date keywords
+        let dateKeywords = shortcutsOn ?
+            ["today", "td", "tomorrow", "tm", "monday", "mon", "tuesday", "tue", "wednesday", "wed", "thursday", "thu", "friday", "fri", "saturday", "sat", "sunday", "sun"] :
+            ["today", "tomorrow", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+        for keyword in dateKeywords {
+            addMatches(pattern: "\\b\(keyword)\\b", type: .date)
+        }
+
+        // Relative date patterns
+        addMatches(pattern: "\\bin\\s+\\d+\\s+days?\\b", type: .date)
+        addMatches(pattern: "\\bin\\s+\\d+\\s+weeks?\\b", type: .date)
+        addMatches(pattern: "\\bin\\s+\\d+\\s+months?\\b", type: .date)
+
+        // Numeric date patterns
+        addMatches(pattern: "\\b\\d{1,2}[./]\\d{1,2}\\.?\\b", type: .date)
+
+        // Month name patterns
+        addMatches(pattern: "\\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\\s+\\d{1,2}(st|nd|rd|th)?\\b", type: .date)
+
+        // Period combinations (this/next week/month/day etc.)
+        let periodPatterns = shortcutsOn ?
+            ["\\bthis\\s+(week|month|monday|mon|tuesday|tue|wednesday|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)\\b",
+             "\\bnext\\s+(week|month|monday|mon|tuesday|tue|wednesday|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)\\b"] :
+            ["\\bthis\\s+(week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b",
+             "\\bnext\\s+(week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b"]
+        for pattern in periodPatterns {
+            addMatches(pattern: pattern, type: .date)
+        }
+
+        // Time patterns
+        addMatches(pattern: "\\b(\\d{1,2}):(\\d{2})\\s*(am|pm)?\\b", type: .time)
+        addMatches(pattern: "\\b(\\d{1,2})\\s*(am|pm)\\b", type: .time)
+        addMatches(pattern: "\\bat\\s+(\\d{1,2})\\b", type: .time)
+
+        // Time offset patterns
+        addMatches(pattern: "\\bin\\s+\\d+\\s*(?:hours?|hrs?|h)\\b", type: .time)
+        addMatches(pattern: "\\bin\\s+\\d+\\s*(?:minutes?|mins?|min|m)\\b", type: .time)
+
+        // Time period keywords
+        addMatches(pattern: "\\b(morning|afternoon|evening|night|noon)\\b", type: .time)
+
+        // Recurrence patterns
+        addMatches(pattern: "\\bevery\\s+\\d+\\s+(?:day|days|week|weeks|month|months)\\b", type: .recurrence)
+        addMatches(pattern: "\\bevery\\s+(?:day|week|month)\\b", type: .recurrence)
+
+        return variables.sorted { $0.range.location < $1.range.location }
+    }
+
 }
 
 

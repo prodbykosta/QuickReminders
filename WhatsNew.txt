@@ -1,0 +1,1 @@
+- AI Mode — type or speak in any of 14 languages (English, Czech, Slovak, German, French, Spanish, Italian, Portuguese, Polish, Japanese, Chinese, Korean, Russian, Ukrainian) and AI transforms it into a perfectly formatted reminder. Supports Gemini, Groq, and self-hosted models (Ollama / LM Studio)

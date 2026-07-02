@@ -2,6 +2,31 @@
 import Foundation
 import EventKit
 
+// MARK: - ParsedVariable for variable toggling
+
+public struct ParsedVariable {
+    public let text: String
+    public let range: NSRange
+    public let type: VariableType
+    public var isOverriddenAsText: Bool
+
+    public enum VariableType {
+        case date
+        case time
+        case number
+        case contact
+        case location
+        case recurrence
+    }
+
+    public init(text: String, range: NSRange, type: VariableType, isOverriddenAsText: Bool = false) {
+        self.text = text
+        self.range = range
+        self.type = type
+        self.isOverriddenAsText = isOverriddenAsText
+    }
+}
+
 // MARK: - ParsedReminder struct for macOS NLParser
 
 public struct ParsedReminder {
@@ -13,8 +38,31 @@ public struct ParsedReminder {
     public let recurrenceEndDate: Date?
     public let isValid: Bool
     public let errorMessage: String?
-    
-    public init(title: String, dueDate: Date?, isRecurring: Bool = false, recurrenceInterval: Int? = nil, recurrenceFrequency: EKRecurrenceFrequency? = nil, recurrenceEndDate: Date? = nil, isValid: Bool = true, errorMessage: String? = nil) {
+
+    // NEW: Urgent/alarm support
+    public let isUrgent: Bool
+    public let alarmOffset: TimeInterval?
+
+    // NEW: Notes support
+    public let notes: String?
+
+    // NEW: Variable tracking for toggle feature
+    public let parsedVariables: [ParsedVariable]
+
+    public init(
+        title: String,
+        dueDate: Date?,
+        isRecurring: Bool = false,
+        recurrenceInterval: Int? = nil,
+        recurrenceFrequency: EKRecurrenceFrequency? = nil,
+        recurrenceEndDate: Date? = nil,
+        isValid: Bool = true,
+        errorMessage: String? = nil,
+        isUrgent: Bool = false,
+        alarmOffset: TimeInterval? = nil,
+        notes: String? = nil,
+        parsedVariables: [ParsedVariable] = []
+    ) {
         self.title = title
         self.dueDate = dueDate
         self.isRecurring = isRecurring
@@ -23,6 +71,10 @@ public struct ParsedReminder {
         self.recurrenceEndDate = recurrenceEndDate
         self.isValid = isValid
         self.errorMessage = errorMessage
+        self.isUrgent = isUrgent
+        self.alarmOffset = alarmOffset
+        self.notes = notes
+        self.parsedVariables = parsedVariables
     }
 }
 
@@ -100,31 +152,31 @@ class NLParser {
             "\\bin\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
             
             // NEW: Hours/Minutes patterns (simple) - FIX FOR RED BORDER ERROR
-            "in\\s+(\\d+)\\s*(?:hours?|hrs?|h)",
-            "in\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)",
+            "\\bin\\s+(\\d+)\\s*(?:hours?|hrs?|h)",
+            "\\bin\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)",
             
             "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
             "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
             "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(?:at\\s+)?(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
             
-            "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-            "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-            "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-            "in\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)",
-            "in\\s+(\\d+)\\s+(day|days)",
+            "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "\\bin\\s+(\\d+)\\s+(day|days|week|weeks|month|months)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)",
+            "\\bin\\s+(\\d+)\\s+(day|days)",
             
             // SPECIFIC: "in X weeks/months weekday" patterns (MUST come before general patterns)
-            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-            
-            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
-            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
-            "in\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)",
+            "\\bin\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+
+            "\\bin\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "\\bin\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "\\bin\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?",
+            "\\bin\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?",
+            "\\bin\\s+(\\d+)\\s+(weeks?|months?)\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)",
 
             "\\b(tomorrow|tm|today|td)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
             "\\b(tomorrow|tm|today|td)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
@@ -159,11 +211,11 @@ class NLParser {
             "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
             "next\\s+week\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
             
-            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
-            "in\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+at\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+(\\d{1,2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
+            "\\bin\\s+(\\d+)\\s+weeks?\\s+(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
             
             // Reverse order patterns: weekday + week specifier
             "(monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun)\\s+next\\s+week\\s+at\\s+(\\d{1,2}):(\\d{2})\\s*(am|pm|AM|PM)?\\s+every\\s+(\\d+)\\s+(day|days|week|weeks|month|months)",
@@ -236,12 +288,36 @@ class NLParser {
         ]
     }
     
-    func parseReminderText(_ text: String) -> ParsedReminder {
+    // Convert word numbers to digits (e.g., "five" -> "5")
+    private func convertWordNumbersToDigits(_ text: String) -> String {
+        let numberWords: [String: String] = [
+            "one": "1", "two": "2", "three": "3", "four": "4", "five": "5",
+            "six": "6", "seven": "7", "eight": "8", "nine": "9", "ten": "10",
+            "eleven": "11", "twelve": "12", "thirteen": "13", "fourteen": "14", "fifteen": "15",
+            "sixteen": "16", "seventeen": "17", "eighteen": "18", "nineteen": "19", "twenty": "20",
+            "thirty": "30", "forty": "40", "fifty": "50", "sixty": "60"
+        ]
+
+        var result = text
+        for (word, digit) in numberWords {
+            // Use word boundaries to avoid partial matches
+            let pattern = "\\b\(word)\\b"
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) {
+                result = regex.stringByReplacingMatches(in: result, options: [], range: NSRange(location: 0, length: (result as NSString).length), withTemplate: digit)
+            }
+        }
+        return result
+    }
+
+    func parseReminderText(_ text: String, convertWordNumbers: Bool = false) -> ParsedReminder {
+        // Convert word numbers to digits first (only if enabled - mainly for Siri)
+        let normalizedText = convertWordNumbers ? convertWordNumbersToDigits(text) : text
+
         // Validate input
-        let validationResult = validateInput(text)
+        let validationResult = validateInput(normalizedText)
         if !validationResult.isValid {
             return ParsedReminder(
-                title: extractTitle(from: text),
+                title: extractTitle(from: normalizedText),
                 dueDate: nil,
                 isRecurring: false,
                 recurrenceInterval: nil,
@@ -251,15 +327,15 @@ class NLParser {
                 errorMessage: validationResult.errorMessage
             )
         }
-        
-        let lowercaseText = text.lowercased()
-        let title = extractTitle(from: text)
-        
+
+        let lowercaseText = normalizedText.lowercased()
+        let title = extractTitle(from: normalizedText)
+
         // Try smart parsing first
         let smartResult = smartParse(from: lowercaseText)
         if smartResult.dueDate != nil {
             // Extract smart title that only removes detected scheduling phrases
-            let smartTitle = extractSmartTitle(from: text, detectedPhrases: smartResult.detectedPhrases)
+            let smartTitle = extractSmartTitle(from: normalizedText, detectedPhrases: smartResult.detectedPhrases)
             return ParsedReminder(
                 title: smartTitle,
                 dueDate: smartResult.dueDate,
@@ -347,30 +423,40 @@ class NLParser {
             
             // Determine start date
             if let datePattern = datePatternInfo {
-                // Use specific date pattern (10.23, 12/15, etc.)
+                // Use specific date pattern (10.23, 12/15, 12.12.2026, etc.)
                 var components = DateComponents()
-                components.year = calendar.component(.year, from: now)
+                // Use the provided year if available, otherwise use current year
+                components.year = datePattern.year ?? calendar.component(.year, from: now)
                 components.month = datePattern.month
                 components.day = datePattern.day
                 components.hour = hour
                 components.minute = minute
-                
+
                 if let targetDate = calendar.date(from: components) {
-                    // If the date is in the past, move to next year
-                    startDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                    // If the date is in the past AND no year was specified, move to next year
+                    if datePattern.year == nil && targetDate < now {
+                        startDate = calendar.date(byAdding: .year, value: 1, to: targetDate)
+                    } else {
+                        startDate = targetDate
+                    }
                 }
             } else if let monthDay = monthDayInfo {
-                // Use natural language month pattern (October 15th, 15th of Oct, etc.)
+                // Use natural language month pattern (October 15th 2026, december 12 2026, etc.)
                 var components = DateComponents()
-                components.year = calendar.component(.year, from: now)
+                // Use the provided year if available, otherwise use current year
+                components.year = monthDay.year ?? calendar.component(.year, from: now)
                 components.month = monthDay.month
                 components.day = monthDay.day
                 components.hour = hour
                 components.minute = minute
-                
+
                 if let targetDate = calendar.date(from: components) {
-                    // If the date is in the past, move to next year
-                    startDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                    // If the date is in the past AND no year was specified, move to next year
+                    if monthDay.year == nil && targetDate < now {
+                        startDate = calendar.date(byAdding: .year, value: 1, to: targetDate)
+                    } else {
+                        startDate = targetDate
+                    }
                 }
             } else if let weekday = weekdayInfo {
                 // Calculate target date based on weekday info
@@ -455,35 +541,49 @@ class NLParser {
                 hour = time.hour
                 minute = time.minute
             }
-            
+
             var components = DateComponents()
-            components.year = calendar.component(.year, from: now)
+            // Use the provided year if available, otherwise use current year
+            components.year = datePattern.year ?? calendar.component(.year, from: now)
             components.month = datePattern.month
             components.day = datePattern.day
             components.hour = hour
             components.minute = minute
-            
+
             if let targetDate = calendar.date(from: components) {
-                let finalDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                // If the date is in the past AND no year was specified, move to next year
+                let finalDate: Date?
+                if datePattern.year == nil && targetDate < now {
+                    finalDate = calendar.date(byAdding: .year, value: 1, to: targetDate)
+                } else {
+                    finalDate = targetDate
+                }
                 return (finalDate, false, nil, nil, nil, detectedPhrases)
             }
         } else if let monthDay = monthDayInfo {
-            // Handle natural language month patterns without recurrence
+            // Handle natural language month patterns without recurrence (October 15th 2026, etc.)
             var hour = 9, minute = 0
             if let time = timeInfo {
                 hour = time.hour
                 minute = time.minute
             }
-            
+
             var components = DateComponents()
-            components.year = calendar.component(.year, from: now)
+            // Use the provided year if available, otherwise use current year
+            components.year = monthDay.year ?? calendar.component(.year, from: now)
             components.month = monthDay.month
             components.day = monthDay.day
             components.hour = hour
             components.minute = minute
-            
+
             if let targetDate = calendar.date(from: components) {
-                let finalDate = targetDate < now ? calendar.date(byAdding: .year, value: 1, to: targetDate) : targetDate
+                // If the date is in the past AND no year was specified, move to next year
+                let finalDate: Date?
+                if monthDay.year == nil && targetDate < now {
+                    finalDate = calendar.date(byAdding: .year, value: 1, to: targetDate)
+                } else {
+                    finalDate = targetDate
+                }
                 return (finalDate, false, nil, nil, nil, detectedPhrases)
             }
         } else if let weekday = weekdayInfo {
@@ -1047,8 +1147,8 @@ class NLParser {
         // Check for "in X hours/minutes" patterns (NEW)
         if text.contains("in") {
             let timePatterns = [
-                ("in\\s+(\\d+)\\s*(?:hours?|hrs?|h)\\b", "hours"),
-                ("in\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)\\b", "minutes")
+                ("\\bin\\s+(\\d+)\\s*(?:hours?|hrs?|h)\\b", "hours"),
+                ("\\bin\\s+(\\d+)\\s*(?:minutes?|mins?|min|m)\\b", "minutes")
             ]
             
             var detectedHours: Int? = nil
@@ -1089,9 +1189,9 @@ class NLParser {
         if text.contains("in") && (text.contains("day") || text.contains("week") || text.contains("month")) {
             // Use regex only for number extraction, not for detection
             let inPatterns = [
-                ("in\\s+(\\d+)\\s+days?", 1),     // "in 3 days" -> multiply by 1
-                ("in\\s+(\\d+)\\s+weeks?", 7),    // "in 2 weeks" -> multiply by 7
-                ("in\\s+(\\d+)\\s+months?", 30)   // "in 1 month" -> multiply by 30
+                ("\\bin\\s+(\\d+)\\s+days?", 1),     // "in 3 days" -> multiply by 1
+                ("\\bin\\s+(\\d+)\\s+weeks?", 7),    // "in 2 weeks" -> multiply by 7
+                ("\\bin\\s+(\\d+)\\s+months?", 30)   // "in 1 month" -> multiply by 30
             ]
             
             for (pattern, multiplier) in inPatterns {
@@ -1132,31 +1232,43 @@ class NLParser {
         return (nil, nil)
     }
     
-    private func detectDatePattern(in text: String, detectedPhrases: inout [String]) -> (month: Int, day: Int)? {
-        // Look for date patterns like "10.23", "12/15", "10/26", etc.
+    private func detectDatePattern(in text: String, detectedPhrases: inout [String]) -> (month: Int, day: Int, year: Int?)? {
+        // Look for date patterns like "10.23", "12/15", "10/26", "12.12.2026", etc.
         let datePatterns = [
-            "\\b(\\d{1,2})[./](\\d{1,2})\\b"
+            "\\b(\\d{1,2})[./](\\d{1,2})[./](\\d{4})\\b",  // With year: 12.12.2026
+            "\\b(\\d{1,2})[./](\\d{1,2})\\b"  // Without year: 12.12
         ]
-        
+
         for pattern in datePatterns {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
                let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
-                
+
                 let matchedText = String(text[Range(match.range, in: text)!])
                 detectedPhrases.append(matchedText)
-                
+
                 let firstValue = Int(String(text[Range(match.range(at: 1), in: text)!])) ?? 0
                 let secondValue = Int(String(text[Range(match.range(at: 2), in: text)!])) ?? 0
-                
+
+                // Extract year if present (3rd capture group)
+                var year: Int? = nil
+                if match.numberOfRanges > 3 {
+                    let yearRange = match.range(at: 3)
+                    if yearRange.location != NSNotFound {
+                        year = Int(String(text[Range(yearRange, in: text)!]))
+                    }
+                }
+
                 // Use existing parseDateComponents function to handle MM/DD vs DD/MM format
-                return parseDateComponents(firstValue: firstValue, secondValue: secondValue)
+                if let dateComponents = parseDateComponents(firstValue: firstValue, secondValue: secondValue) {
+                    return (dateComponents.month, dateComponents.day, year)
+                }
             }
         }
-        
+
         return nil
     }
     
-    private func detectMonthDayPattern(in text: String, detectedPhrases: inout [String]) -> (month: Int, day: Int)? {
+    private func detectMonthDayPattern(in text: String, detectedPhrases: inout [String]) -> (month: Int, day: Int, year: Int?)? {
         // Month names mapping
         let monthMap: [String: Int] = [
             "january": 1, "jan": 1,
@@ -1172,8 +1284,30 @@ class NLParser {
             "november": 11, "nov": 11,
             "december": 12, "dec": 12
         ]
-        
-        // Pattern 1: "October 15th", "on October 15", "Oct 23rd"
+
+        // Pattern 1: "October 15th 2026", "december 12 2026", "Dec 12th 2026" (WITH YEAR)
+        let monthDayYearPatterns = [
+            "\\b(on\\s+)?(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\s+(\\d{1,2})(?:st|nd|rd|th)?[,\\s]+(\\d{4})\\b"
+        ]
+
+        for pattern in monthDayYearPatterns {
+            if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
+               let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
+
+                let matchedText = String(text[Range(match.range, in: text)!])
+                detectedPhrases.append(matchedText)
+
+                let monthName = String(text[Range(match.range(at: 2), in: text)!]).lowercased()
+                let dayValue = Int(String(text[Range(match.range(at: 3), in: text)!])) ?? 0
+                let yearValue = Int(String(text[Range(match.range(at: 4), in: text)!])) ?? 0
+
+                if let month = monthMap[monthName], dayValue >= 1 && dayValue <= 31 {
+                    return (month: month, day: dayValue, year: yearValue)
+                }
+            }
+        }
+
+        // Pattern 2: "October 15th", "on October 15", "Oct 23rd" (WITHOUT YEAR)
         let monthDayPatterns = [
             "\\b(on\\s+)?(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\s+(\\d{1,2})(?:st|nd|rd|th)?\\b"
         ]
@@ -1181,61 +1315,61 @@ class NLParser {
         for pattern in monthDayPatterns {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
                let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
-                
+
                 let matchedText = String(text[Range(match.range, in: text)!])
                 detectedPhrases.append(matchedText)
-                
+
                 let monthName = String(text[Range(match.range(at: 2), in: text)!]).lowercased()
                 let dayValue = Int(String(text[Range(match.range(at: 3), in: text)!])) ?? 0
-                
+
                 if let month = monthMap[monthName], dayValue >= 1 && dayValue <= 31 {
-                    return (month: month, day: dayValue)
+                    return (month: month, day: dayValue, year: nil)
                 }
             }
         }
-        
-        // Pattern 2: "15th of October", "on 23rd of Oct", "15 of October"
+
+        // Pattern 3: "15th of October", "on 23rd of Oct", "15 of October"
         let dayMonthPatterns = [
             "\\b(on\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+of\\s+(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)\\b"
         ]
-        
+
         for pattern in dayMonthPatterns {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
                let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
-                
+
                 let matchedText = String(text[Range(match.range, in: text)!])
                 detectedPhrases.append(matchedText)
-                
+
                 let dayValue = Int(String(text[Range(match.range(at: 2), in: text)!])) ?? 0
                 let monthName = String(text[Range(match.range(at: 3), in: text)!]).lowercased()
-                
+
                 if let month = monthMap[monthName], dayValue >= 1 && dayValue <= 31 {
-                    return (month: month, day: dayValue)
+                    return (month: month, day: dayValue, year: nil)
                 }
             }
         }
-        
-        // Pattern 3: "15th of this month", "on 23rd of next month"
+
+        // Pattern 4: "15th of this month", "on 23rd of next month"
         let relativeMonthPatterns = [
             "\\b(on\\s+)?(\\d{1,2})(?:st|nd|rd|th)?\\s+of\\s+(this|next)\\s+month\\b"
         ]
-        
+
         for pattern in relativeMonthPatterns {
             if let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive),
                let match = regex.firstMatch(in: text, options: [], range: NSRange(location: 0, length: (text as NSString).length)) {
-                
+
                 let matchedText = String(text[Range(match.range, in: text)!])
                 detectedPhrases.append(matchedText)
-                
+
                 let dayValue = Int(String(text[Range(match.range(at: 2), in: text)!])) ?? 0
                 let monthContext = String(text[Range(match.range(at: 3), in: text)!]).lowercased()
-                
+
                 if dayValue >= 1 && dayValue <= 31 {
                     let calendar = Calendar.current
                     let currentMonth = calendar.component(.month, from: Date())
-                    
+
                     let targetMonth = monthContext == "this" ? currentMonth : (currentMonth % 12) + 1
-                    return (month: targetMonth, day: dayValue)
+                    return (month: targetMonth, day: dayValue, year: nil)
                 }
             }
         }
@@ -1597,9 +1731,9 @@ class NLParser {
             }
         }
         
-        // Check for incomplete "in" patterns  
+        // Check for incomplete "in" patterns (only when followed by a number)
         if lowercaseText.contains(" in ") {
-            let inPattern = "\\bin\\s+(?!\\d+\\s*(day|days|week|weeks|month|months|hour|hours|hrs|h|minute|minutes|mins|min|m)\\b)\\w+"
+            let inPattern = "\\bin\\s+\\d+\\s+(?!(day|days|week|weeks|month|months|hour|hours|hrs|h|minute|minutes|mins|min|m)\\b)\\w+"
             if let regex = try? NSRegularExpression(pattern: inPattern),
                regex.firstMatch(in: lowercaseText, range: NSRange(location: 0, length: lowercaseText.count)) != nil {
                 return "Invalid relative date format - use 'in X days/weeks/months/hours/minutes'"
@@ -2709,7 +2843,103 @@ class NLParser {
         default: return .daily
         }
     }
-    
+
+    // MARK: - Variable Extraction for Toggle Feature
+
+    func extractVariables(from text: String) -> [ParsedVariable] {
+        var variables: [ParsedVariable] = []
+        let nsText = text as NSString
+
+        // Helper to add matches without overlapping existing variable ranges
+        func addMatches(pattern: String, type: ParsedVariable.VariableType) {
+            guard let regex = try? NSRegularExpression(pattern: pattern, options: .caseInsensitive) else { return }
+            let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
+            for match in matches {
+                // Skip if this range overlaps with an already-added variable
+                let overlaps = variables.contains { existing in
+                    NSIntersectionRange(existing.range, match.range).length > 0
+                }
+                if !overlaps {
+                    variables.append(ParsedVariable(
+                        text: nsText.substring(with: match.range),
+                        range: match.range,
+                        type: type,
+                        isOverriddenAsText: false
+                    ))
+                }
+            }
+        }
+
+        // Extract command keywords at start of text (list, ls, delete, rm, move, mv, etc.)
+        let commandPattern = shortcutsEnabled ?
+            "^(mv|rm|move|remove|delete|reschedule|list|ls)\\b" :
+            "^(move|remove|delete|reschedule|list)\\b"
+        addMatches(pattern: commandPattern, type: .date) // Use .date type so it can be overridden
+
+        // Extract date keywords (today, tomorrow, days of week)
+        let dateKeywords = shortcutsEnabled ?
+            ["today", "td", "tomorrow", "tm", "monday", "mon", "tuesday", "tue", "wednesday", "wed", "thursday", "thu", "friday", "fri", "saturday", "sat", "sunday", "sun"] :
+            ["today", "tomorrow", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+        for keyword in dateKeywords {
+            addMatches(pattern: "\\b\(keyword)\\b", type: .date)
+        }
+
+        // Extract relative date patterns (in X days/weeks/months)
+        addMatches(pattern: "\\bin\\s+\\d+\\s+days?\\b", type: .date)
+        addMatches(pattern: "\\bin\\s+\\d+\\s+weeks?\\b", type: .date)
+        addMatches(pattern: "\\bin\\s+\\d+\\s+months?\\b", type: .date)
+
+        // Extract numeric date patterns (10/15, 12.23, etc.)
+        addMatches(pattern: "\\b\\d{1,2}[./]\\d{1,2}\\.?\\b", type: .date)
+
+        // Extract month name patterns
+        addMatches(pattern: "\\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|jun|jul|aug|sep|sept|oct|nov|dec)\\s+\\d{1,2}(st|nd|rd|th)?\\b", type: .date)
+
+        // Extract time period combinations (this/next week/month/monday etc.)
+        let periodPatterns = shortcutsEnabled ?
+            ["\\bthis\\s+(week|month|monday|mon|tuesday|tue|wednesday|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)\\b",
+             "\\bnext\\s+(week|month|monday|mon|tuesday|tue|wednesday|wed|thursday|thu|friday|fri|saturday|sat|sunday|sun)\\b"] :
+            ["\\bthis\\s+(week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b",
+             "\\bnext\\s+(week|month|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\\b"]
+        for pattern in periodPatterns {
+            addMatches(pattern: pattern, type: .date)
+        }
+
+        // Extract time patterns (at 3, 3pm, 3:30pm)
+        let timePatterns = [
+            "\\b(\\d{1,2}):(\\d{2})\\s*(am|pm)?\\b",
+            "\\b(\\d{1,2})\\s*(am|pm)\\b",
+            "\\bat\\s+(\\d{1,2})\\b"
+        ]
+        for pattern in timePatterns {
+            addMatches(pattern: pattern, type: .time)
+        }
+
+        // Extract time offset patterns (in 2 hours, in 30 minutes, in 30min, in 2h)
+        addMatches(pattern: "\\bin\\s+\\d+\\s*(?:hours?|hrs?|h)\\b", type: .time)
+        addMatches(pattern: "\\bin\\s+\\d+\\s*(?:minutes?|mins?|min|m)\\b", type: .time)
+
+        // Extract time period keywords (morning, afternoon, evening, noon, night)
+        addMatches(pattern: "\\b(morning|afternoon|evening|night|noon)\\b", type: .time)
+
+        // Extract recurrence patterns (every day, every 2 weeks)
+        let recurrencePatterns = [
+            "\\bevery\\s+\\d+\\s+(?:day|days|week|weeks|month|months)\\b",
+            "\\bevery\\s+(?:day|week|month)\\b"
+        ]
+        for pattern in recurrencePatterns {
+            addMatches(pattern: pattern, type: .recurrence)
+        }
+
+        // Sort variables by range location to maintain order
+        return variables.sorted { $0.range.location < $1.range.location }
+    }
+
+    private var shortcutsEnabled: Bool {
+        return colorTheme?.shortcutsEnabled ?? true
+    }
+
 }
 #endif
 

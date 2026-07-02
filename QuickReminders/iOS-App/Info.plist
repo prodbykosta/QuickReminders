@@ -17,9 +17,9 @@
 	<key>CFBundlePackageType</key>
 	<string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.1</string>
+	<string>1.3</string>
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>12</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>
@@ -71,5 +71,7 @@
 	<string>QuickReminders uses speech recognition to convert your voice into text for creating reminders. This enables hands-free reminder creation.</string>
 	<key>NSRemindersUsageDescription</key>
 	<string>QuickReminders needs access to your Reminders to create, edit, and manage your reminders seamlessly.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>QuickReminders uses your location to attach location-based triggers to reminders and suggest nearby places.</string>
 </dict>
 </plist>

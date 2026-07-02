@@ -2,6 +2,8 @@
 import SwiftUI
 import AppKit
 import EventKit
+import Contacts
+import MapKit
 import Combine
 import Speech
 import AVFoundation
@@ -137,7 +139,7 @@ class FloatingWindow: NSWindow {
     }
 }
 
-// Custom TextField that works properly in floating windows and automatically focuses
+// Custom TextField with syntax highlighting - Safe version with constraint loop protection
 struct FocusableTextField: NSViewRepresentable {
     @Binding var text: String
     var placeholder: String
@@ -145,7 +147,10 @@ struct FocusableTextField: NSViewRepresentable {
     var colorHelpersEnabled: Bool
     var shortcutsEnabled: Bool
     var timePeriodsEnabled: Bool
-    
+    var isEditingVariables: Bool = false
+    @Binding var parsedVariables: [ParsedVariable]
+    var onVariableToggle: (Int) -> Void
+
     func makeNSView(context: Context) -> HighlightedTextField {
         let textField = HighlightedTextField()
         textField.stringValue = text
@@ -156,58 +161,137 @@ struct FocusableTextField: NSViewRepresentable {
         textField.colorHelpersEnabled = colorHelpersEnabled
         textField.shortcutsEnabled = shortcutsEnabled
         textField.timePeriodsEnabled = timePeriodsEnabled
-        
+        textField.parsedVariables = parsedVariables
+        textField.onVariableToggle = onVariableToggle
+
         // Auto-focus after a short delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
             textField.window?.makeFirstResponder(textField)
         }
-        
+
         return textField
     }
-    
+
     func updateNSView(_ nsView: HighlightedTextField, context: Context) {
-        // Update settings first
-        nsView.setColorHelpersEnabled(colorHelpersEnabled)
-        nsView.setShortcutsEnabled(shortcutsEnabled)
-        nsView.setTimePeriodsEnabled(timePeriodsEnabled)
-        
+        // CRITICAL: Don't call applyHighlighting() here to avoid constraint loops
+        // Highlighting happens automatically via textDidChange when user types
+
         // Only update text if it's different to avoid cursor jumping
         if nsView.stringValue != text {
-            nsView.updateText(text)
+            nsView.stringValue = text
+        }
+
+        // Update highlighting settings (safe - no didSet triggers)
+        nsView.colorHelpersEnabled = colorHelpersEnabled
+        nsView.shortcutsEnabled = shortcutsEnabled
+        nsView.timePeriodsEnabled = timePeriodsEnabled
+
+        // Update variable editing state - check if anything changed
+        let editingChanged = nsView.isEditingVariables != isEditingVariables
+        let variablesChanged = nsView.parsedVariables.count != parsedVariables.count ||
+                              (0..<min(nsView.parsedVariables.count, parsedVariables.count)).contains { i in
+                                  nsView.parsedVariables[i].isOverriddenAsText != parsedVariables[i].isOverriddenAsText
+                              }
+
+        nsView.isEditingVariables = isEditingVariables
+        nsView.parsedVariables = parsedVariables
+        nsView.onVariableToggle = onVariableToggle
+
+        // If editing mode changed OR variables changed OR have overridden variables, refresh highlighting
+        // Use longer delay to avoid layout recursion
+        if (editingChanged || variablesChanged || parsedVariables.contains(where: { $0.isOverriddenAsText })) && !text.isEmpty {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                nsView.refreshHighlighting()
+            }
         }
     }
-    
+
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
     }
-    
+
     class Coordinator: NSObject, NSTextFieldDelegate {
         let parent: FocusableTextField
-        
+
         init(_ parent: FocusableTextField) {
             self.parent = parent
         }
-        
+
         func controlTextDidChange(_ obj: Notification) {
             if let textField = obj.object as? HighlightedTextField {
                 let newText = textField.stringValue
-                
+
                 DispatchQueue.main.async {
                     self.parent.text = newText
                 }
             }
         }
-        
+
         @objc func textFieldAction(_ sender: NSTextField) {
             parent.onSubmit()
         }
-        
+
         func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
             if commandSelector == #selector(NSResponder.insertNewline(_:)) {
                 parent.onSubmit()
                 return true
             }
             return false
+        }
+    }
+}
+
+// Custom NSTextView for notes with proper padding
+struct MacNotesTextView: NSViewRepresentable {
+    @Binding var text: String
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSTextView.scrollableTextView()
+        let textView = scrollView.documentView as! NSTextView
+
+        textView.delegate = context.coordinator
+        textView.font = .systemFont(ofSize: 13)
+        textView.isRichText = false
+        textView.backgroundColor = .clear
+        textView.drawsBackground = false
+        textView.textContainerInset = NSSize(width: 8, height: 8) // Proper padding
+        textView.isAutomaticQuoteSubstitutionEnabled = false
+        textView.isAutomaticDashSubstitutionEnabled = false
+        textView.isAutomaticLinkDetectionEnabled = false
+        textView.isAutomaticTextReplacementEnabled = false
+
+        // Set placeholder
+        if text.isEmpty {
+            textView.string = ""
+        } else {
+            textView.string = text
+        }
+
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+
+        if textView.string != text {
+            textView.string = text
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+
+    class Coordinator: NSObject, NSTextViewDelegate {
+        var parent: MacNotesTextView
+
+        init(_ parent: MacNotesTextView) {
+            self.parent = parent
+        }
+
+        func textDidChange(_ notification: Notification) {
+            guard let textView = notification.object as? NSTextView else { return }
+            parent.text = textView.string
         }
     }
 }
@@ -219,7 +303,7 @@ class FloatingWindowManager: ObservableObject {
     private var speechManager: SpeechManager?
     private var windowDelegate: FloatingWindowDelegate?
     private var isCleaningUp = false
-    
+
     var isWindowVisible: Bool {
         return floatingWindow?.isVisible == true
     }
@@ -351,7 +435,7 @@ class FloatingWindowManager: ObservableObject {
     private func createFloatingWindow() {
         floatingWindow = FloatingWindow(
             contentRect: NSRect(x: 0, y: 0, width: 600, height: 140),
-            styleMask: [.borderless, .resizable], // Borderless like Spotlight but resizable
+            styleMask: [.borderless, .resizable], // Borderless like Spotlight but resizable for manual sizing
             backing: .buffered,
             defer: false
         )
@@ -383,14 +467,14 @@ class FloatingWindowManager: ObservableObject {
         ))
         
         window.contentView = contentView
-        
+
         // Make window frame corners rounded to match content (apply after setting content view)
         if #available(macOS 11.0, *) {
             contentView.wantsLayer = true
             contentView.layer?.cornerRadius = 16
             contentView.layer?.masksToBounds = true
         }
-        
+
         // Make sure the window can receive keyboard events
         window.acceptsMouseMovedEvents = true
         
@@ -481,7 +565,22 @@ struct FloatingReminderView: View {
     @State private var baseWindowHeight: CGFloat = 140 // Base height for input only
     @State private var lastCommandTime: Date = Date() // Track last command time to prevent rapid commands
     @State private var isTransitioning = false // Prevent multiple simultaneous state transitions
-    
+    @State private var isResizingWindow = false // Prevent re-entry during window resize to avoid constraint loops
+    @State private var showVariablePanel = false // Show variable selection panel
+
+    // Feature integration states
+    @State private var selectedLocation: MKMapItem?
+    @State private var locationProximity: EKAlarmProximity = .enter
+    @State private var notesText = ""
+    @State private var showNotesField = false
+    @State private var isUrgent = false
+    @State private var overriddenRanges: [NSRange] = []
+    @State private var isEditingVariables = false
+    @State private var parsedVariables: [ParsedVariable] = []
+
+    // Picker states
+    @State private var showLocationPicker = false
+
     private var nlParser: NLParser
     let onClose: () -> Void
     
@@ -547,10 +646,13 @@ struct FloatingReminderView: View {
                         onSubmit: processCommand,
                         colorHelpersEnabled: colorTheme.colorHelpersEnabled,
                         shortcutsEnabled: colorTheme.shortcutsEnabled,
-                        timePeriodsEnabled: colorTheme.timePeriodsEnabled
+                        timePeriodsEnabled: colorTheme.timePeriodsEnabled,
+                        isEditingVariables: isEditingVariables,
+                        parsedVariables: $parsedVariables,
+                        onVariableToggle: { index in
+                            handleVariableToggle(at: index)
+                        }
                     )
-                    .font(.system(size: 16, weight: .medium))
-                    .disabled(speechManager.isListening)
                     
                     // Microphone button - only show if both speech recognition and microphone permissions are granted
                     if speechPermissionsGranted() {
@@ -721,9 +823,231 @@ struct FloatingReminderView: View {
                 }
             )
             .clipShape(RoundedRectangle(cornerRadius: 16))
-            
-            
-            
+
+            // Feature buttons - circular design below main input
+            HStack(spacing: 12) {
+                // Location button
+                Button(action: { showLocationPicker = true }) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: selectedLocation != nil ? [Color.green, Color.green.opacity(0.8)] : [Color.secondary.opacity(0.2), Color.secondary.opacity(0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 36, height: 36)
+
+                        Image(systemName: selectedLocation != nil ? "location.fill" : "location")
+                            .foregroundColor(selectedLocation != nil ? .white : .secondary)
+                            .font(.system(size: 16, weight: .medium))
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Add Location")
+                .popover(isPresented: $showLocationPicker) {
+                    MacLocationPickerView(selectedLocation: $selectedLocation, locationProximity: $locationProximity)
+                }
+
+                // Urgent button
+                Button(action: { isUrgent.toggle() }) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: isUrgent ? [Color.red, Color.red.opacity(0.8)] : [Color.secondary.opacity(0.2), Color.secondary.opacity(0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 36, height: 36)
+
+                        Image(systemName: isUrgent ? "exclamationmark.circle.fill" : "exclamationmark.circle")
+                            .foregroundColor(isUrgent ? .white : .secondary)
+                            .font(.system(size: 16, weight: .medium))
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Mark as Urgent")
+
+                // Notes button
+                Button(action: {
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                        showNotesField.toggle()
+                    }
+                }) {
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: showNotesField ? [Color.orange, Color.orange.opacity(0.8)] : [Color.secondary.opacity(0.2), Color.secondary.opacity(0.1)],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 36, height: 36)
+
+                        Image(systemName: showNotesField ? "note.text.badge.plus" : "note.text")
+                            .foregroundColor(showNotesField ? .white : .secondary)
+                            .font(.system(size: 16, weight: .medium))
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Add Notes")
+
+                // Variable toggle button - Enable/disable variable parsing
+                if colorTheme.enableVariableToggle {
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                            showVariablePanel.toggle()
+                        }
+
+                        // Extract variables when entering edit mode
+                        if showVariablePanel {
+                            parsedVariables = nlParser.extractVariables(from: reminderText)
+                            isEditingVariables = true
+                        } else {
+                            isEditingVariables = false
+                        }
+                    }) {
+                        ZStack {
+                            Circle()
+                                .fill(
+                                    LinearGradient(
+                                        colors: isEditingVariables ? [Color.purple, Color.purple.opacity(0.8)] : [Color.secondary.opacity(0.2), Color.secondary.opacity(0.1)],
+                                        startPoint: .topLeading,
+                                        endPoint: .bottomTrailing
+                                    )
+                                )
+                                .frame(width: 36, height: 36)
+
+                            Image(systemName: isEditingVariables ? "checkmark.circle.fill" : "text.word.spacing")
+                                .foregroundColor(isEditingVariables ? .white : .secondary)
+                                .font(.system(size: 16, weight: .medium))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help(isEditingVariables ? "Done Editing Variables" : "Toggle Variable Parsing")
+                    .disabled(reminderText.isEmpty)
+                    .opacity(reminderText.isEmpty ? 0.5 : 1.0)
+                }
+            }
+            .padding(.top, 8)
+
+            // Notes expansion field
+            if showNotesField {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Additional Notes")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button(action: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                showNotesField = false
+                                notesText = ""
+                            }
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Close notes field")
+                    }
+
+                    MacNotesTextView(text: $notesText)
+                        .frame(height: 80)
+                        .background(Color(NSColor.textBackgroundColor).opacity(0.5))
+                        .cornerRadius(8)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.3), lineWidth: 1)
+                        )
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
+            // Variable selection panel
+            if showVariablePanel {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Select Variables to Treat as Literal Text")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                        Button(action: {
+                            withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
+                                showVariablePanel = false
+                                isEditingVariables = false
+                            }
+                        }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                                .font(.system(size: 12))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Close variable panel")
+                    }
+
+                    // List of variables with toggle buttons
+                    if parsedVariables.isEmpty {
+                        Text("No variables detected in your text")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .padding(.vertical, 12)
+                    } else {
+                        VStack(spacing: 6) {
+                            ForEach(parsedVariables.indices, id: \.self) { index in
+                                HStack(spacing: 12) {
+                                    // Checkbox/toggle button
+                                    Button(action: {
+                                        handleVariableToggle(at: index)
+                                    }) {
+                                        HStack(spacing: 8) {
+                                            Image(systemName: parsedVariables[index].isOverriddenAsText ? "checkmark.square.fill" : "square")
+                                                .foregroundColor(parsedVariables[index].isOverriddenAsText ? .red : .secondary)
+                                                .font(.system(size: 16))
+
+                                            Text(parsedVariables[index].text)
+                                                .font(.system(size: 13, weight: .medium))
+                                                .foregroundColor(parsedVariables[index].isOverriddenAsText ? .red : .primary)
+                                                .strikethrough(parsedVariables[index].isOverriddenAsText, color: .red)
+
+                                            Spacer()
+
+                                            Text(parsedVariables[index].isOverriddenAsText ? "Literal Text" : "Will Parse")
+                                                .font(.system(size: 11))
+                                                .foregroundColor(parsedVariables[index].isOverriddenAsText ? .red : .purple)
+                                                .padding(.horizontal, 8)
+                                                .padding(.vertical, 3)
+                                                .background(
+                                                    RoundedRectangle(cornerRadius: 4)
+                                                        .fill(parsedVariables[index].isOverriddenAsText ? Color.red.opacity(0.1) : Color.purple.opacity(0.1))
+                                                )
+                                        }
+                                    }
+                                    .buttonStyle(.plain)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 8)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .fill(parsedVariables[index].isOverriddenAsText ? Color.red.opacity(0.05) : Color.secondary.opacity(0.05))
+                                    )
+                                }
+                            }
+                        }
+                        .frame(maxHeight: 150)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .transition(.move(edge: .top).combined(with: .opacity))
+            }
+
             // Permission warning if needed
             if !reminderManager.hasAccess {
                 HStack(spacing: 8) {
@@ -789,7 +1113,6 @@ struct FloatingReminderView: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             resizeWindowForDuplicateSelection(show: false)
                         }
-                        
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             isTransitioning = false
                         }
@@ -797,17 +1120,16 @@ struct FloatingReminderView: View {
                     onCancel: {
                         guard !isTransitioning else { return }
                         isTransitioning = true
-                        
+
                         // Coordinate SwiftUI and window animations
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
                             insideWindowState = .hidden
                         }
-                        
+
                         // Start window resize immediately with the view animation
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                             resizeWindowForDuplicateSelection(show: false)
                         }
-                        
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
                             isTransitioning = false
                         }
@@ -820,7 +1142,19 @@ struct FloatingReminderView: View {
                 .padding(.top, 12)
             }
         }
-        .frame(minHeight: 50) // Fixed minimum height to prevent jumping
+        .onChange(of: showNotesField) { _, newValue in
+            // Resize window when notes field is toggled (same pattern as list/duplicates)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                resizeWindowForNotes(show: newValue)
+            }
+        }
+        .onChange(of: showVariablePanel) { _, newValue in
+            // Resize window when variable panel is toggled
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                resizeWindowForVariablePanel(show: newValue)
+            }
+        }
+        .frame(minHeight: 50, maxHeight: 600) // Fixed minimum, max height allows growth
         .padding(20)
         .background(
             ZStack {
@@ -1114,7 +1448,34 @@ struct FloatingReminderView: View {
             return Gradient.Stop(color: color, location: position)
         }.sorted { $0.location < $1.location }
     }
-    
+
+    // MARK: - Variable Toggle Handling
+
+    private func handleVariableToggle(at index: Int) {
+        guard index < parsedVariables.count else {
+            return
+        }
+
+        // Toggle the override state
+        parsedVariables[index].isOverriddenAsText.toggle()
+
+        // Sync overriddenRanges so executeCommand can use them for XXX replacement
+        let toggledRange = parsedVariables[index].range
+        if parsedVariables[index].isOverriddenAsText {
+            // Add to overridden ranges if not already present
+            if !overriddenRanges.contains(where: { NSEqualRanges($0, toggledRange) }) {
+                overriddenRanges.append(toggledRange)
+            }
+        } else {
+            // Remove from overridden ranges
+            overriddenRanges.removeAll { NSEqualRanges($0, toggledRange) }
+        }
+
+        // Force SwiftUI to detect the array mutation by creating a new array
+        // This triggers @State to update and re-render
+        parsedVariables = Array(parsedVariables)
+    }
+
     private func processCommand() {
         guard !reminderText.isEmpty, !isProcessing else { return }
         
@@ -1216,35 +1577,120 @@ struct FloatingReminderView: View {
             }
         }
         
-        // Check for list commands
-        let listKeywords = colorTheme.shortcutsEnabled ? ["list", "ls"] : ["list"]
-        if listKeywords.contains(where: { lowercaseText.starts(with: $0) }) {
-            handleListCommand(lowercaseText, resetProcessing: resetProcessing)
-            return
+        // Check if the command keyword at the start is overridden (user toggled it to literal text)
+        let commandKeywordOverridden = overriddenRanges.contains { range in
+            range.location == 0
         }
-        
-        // Check for delete commands
-        let deleteKeywords = colorTheme.shortcutsEnabled ? 
-            ["delete", "remove", "rm "] : 
-            ["delete", "remove"]
-        if deleteKeywords.contains(where: { lowercaseText.starts(with: $0) }) {
-            handleDeleteCommand(lowercaseText, resetProcessing: resetProcessing)
-            return
-        }
-        
-        // Check for move/reschedule commands
-        let moveKeywords = colorTheme.shortcutsEnabled ?
-            ["move", "reschedule", "mv "] :
-            ["move", "reschedule"]
-        if moveKeywords.contains(where: { lowercaseText.starts(with: $0) }) {
-            handleMoveCommand(lowercaseText, resetProcessing: resetProcessing)
-            return
+
+        // Only check for commands if the command keyword is NOT overridden
+        if !commandKeywordOverridden {
+            // Check for list commands
+            let listKeywords = colorTheme.shortcutsEnabled ? ["list", "ls"] : ["list"]
+            if listKeywords.contains(where: { lowercaseText.starts(with: $0) }) {
+                handleListCommand(lowercaseText, resetProcessing: resetProcessing)
+                return
+            }
+
+            // Check for delete commands
+            let deleteKeywords = colorTheme.shortcutsEnabled ?
+                ["delete", "remove", "rm "] :
+                ["delete", "remove"]
+            if deleteKeywords.contains(where: { lowercaseText.starts(with: $0) }) {
+                handleDeleteCommand(lowercaseText, resetProcessing: resetProcessing)
+                return
+            }
+
+            // Check for move/reschedule commands
+            let moveKeywords = colorTheme.shortcutsEnabled ?
+                ["move", "reschedule", "mv "] :
+                ["move", "reschedule"]
+            if moveKeywords.contains(where: { lowercaseText.starts(with: $0) }) {
+                handleMoveCommand(lowercaseText, resetProcessing: resetProcessing)
+                return
+            }
         }
         
         // Regular reminder creation
         nlParser.colorTheme = colorTheme // Set the theme reference for default time
-        let parsedReminder = nlParser.parseReminderText(commandText)
-        
+
+        // Apply variable overrides: replace overridden words with "XXX" so parser ignores them
+        let overriddenRangesToProcess = overriddenRanges
+        var textForParsing = commandText
+        if !overriddenRangesToProcess.isEmpty {
+            let nsText = commandText as NSString
+
+            // Sort ranges in reverse order to replace from end to start (preserves earlier ranges)
+            let sortedRanges = overriddenRangesToProcess.sorted { $0.location > $1.location }
+
+            for range in sortedRanges {
+                if range.location >= 0 && range.location + range.length <= nsText.length {
+                    let originalWord = nsText.substring(with: range)
+
+                    // DON'T replace recurrence keywords! They're critical for parsing
+                    let lowercased = originalWord.lowercased()
+                    if lowercased.contains("every") ||
+                       lowercased == "day" || lowercased == "days" ||
+                       lowercased == "week" || lowercased == "weeks" ||
+                       lowercased == "month" || lowercased == "months" {
+                        continue  // Don't replace recurrence keywords!
+                    }
+
+                    // Replace non-recurrence overridden words with "XXX" (won't be parsed)
+                    if let swiftRange = Range(range, in: textForParsing) {
+                        textForParsing.replaceSubrange(swiftRange, with: "XXX")
+                    }
+                }
+            }
+        }
+
+        var parsedReminder = nlParser.parseReminderText(textForParsing)
+
+        // Restore overridden words back into the title (replace "XXX" placeholders)
+        if !overriddenRangesToProcess.isEmpty {
+            var cleanTitle = parsedReminder.title
+            let nsText = commandText as NSString
+
+            let sortedRanges = overriddenRangesToProcess.sorted { $0.location < $1.location }
+
+            for range in sortedRanges {
+                if range.location >= 0 && range.location + range.length <= nsText.length {
+                    let originalWord = nsText.substring(with: range)
+
+                    // Skip recurrence keywords (they were never replaced)
+                    let lowercased = originalWord.lowercased()
+                    if lowercased.contains("every") ||
+                       lowercased == "day" || lowercased == "days" ||
+                       lowercased == "week" || lowercased == "weeks" ||
+                       lowercased == "month" || lowercased == "months" {
+                        continue
+                    }
+
+                    // Replace first occurrence of "XXX" with the original overridden word
+                    if let xxxRange = cleanTitle.range(of: "XXX") {
+                        cleanTitle.replaceSubrange(xxxRange, with: originalWord)
+                    }
+                }
+            }
+
+            // Clean up any extra spaces
+            cleanTitle = cleanTitle.replacingOccurrences(of: "  ", with: " ").trimmingCharacters(in: .whitespaces)
+
+            // Update parsedReminder with the cleaned title
+            parsedReminder = ParsedReminder(
+                title: cleanTitle,
+                dueDate: parsedReminder.dueDate,
+                isRecurring: parsedReminder.isRecurring,
+                recurrenceInterval: parsedReminder.recurrenceInterval,
+                recurrenceFrequency: parsedReminder.recurrenceFrequency,
+                recurrenceEndDate: parsedReminder.recurrenceEndDate,
+                isValid: parsedReminder.isValid,
+                errorMessage: parsedReminder.errorMessage,
+                isUrgent: parsedReminder.isUrgent,
+                notes: parsedReminder.notes,
+                parsedVariables: parsedReminder.parsedVariables
+            )
+        }
+
         // Check validation
         if !parsedReminder.isValid {
             resetProcessing()
@@ -1252,10 +1698,10 @@ struct FloatingReminderView: View {
             // Validation error
             return
         }
-        
+
         // Clear the input only after validation passes
         reminderText = ""
-        
+
         if parsedReminder.isRecurring {
             // Create recurring reminder
             guard let startDate = parsedReminder.dueDate,
@@ -1266,23 +1712,55 @@ struct FloatingReminderView: View {
                 // Invalid recurring reminder data
                 return
             }
-            
+
+            // Combine notes from parser and additional notes field
+            var finalNotes = ""
+            if let parserNotes = parsedReminder.notes, !parserNotes.isEmpty {
+                finalNotes = parserNotes
+            }
+            if !notesText.isEmpty {
+                finalNotes += finalNotes.isEmpty ? notesText : "\n\n" + notesText
+            }
+
+            // Add location to notes if selected (macOS doesn't support location-based reminders in EventKit)
+            if let mapItem = selectedLocation {
+                let locationNote = "📍 Location: \(mapItem.name ?? "Unknown") (\(locationProximity == .enter ? "When arriving" : "When leaving"))"
+                finalNotes += finalNotes.isEmpty ? locationNote : "\n\n" + locationNote
+            }
+
+            // Add urgent marker to notes if selected
+            if isUrgent {
+                finalNotes += finalNotes.isEmpty ? "⚠️ URGENT" : "\n\n⚠️ URGENT"
+            }
+
             reminderManager.createRecurringReminder(
                 title: parsedReminder.title,
-                notes: nil,
+                notes: finalNotes.isEmpty ? nil : finalNotes,
                 startDate: startDate,
                 interval: interval,
                 frequency: frequency,
-                endDate: parsedReminder.recurrenceEndDate
+                endDate: parsedReminder.recurrenceEndDate,
+                isUrgent: isUrgent
             ) { success, error in
                 DispatchQueue.main.async {
                     resetProcessing()
-                    
+
                     if success {
                         self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
                         // Created recurring reminder
                         // Notify list view to refresh if it's currently showing
                         NotificationCenter.default.post(name: .reminderListDidUpdate, object: nil)
+
+                        // Reset feature selections
+                        self.selectedLocation = nil
+                        self.locationProximity = .enter
+                        self.notesText = ""
+                        self.showNotesField = false
+                        self.isUrgent = false
+                        self.overriddenRanges.removeAll()
+                        self.isEditingVariables = false
+                        self.parsedVariables.removeAll()
+                        self.showVariablePanel = false
                     } else {
                         let _ = error?.localizedDescription ?? "Unknown error"
                         self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
@@ -1292,18 +1770,51 @@ struct FloatingReminderView: View {
             }
         } else {
             // Create regular reminder
+
+            // Combine notes from parser and additional notes field
+            var finalNotes = ""
+            if let parserNotes = parsedReminder.notes, !parserNotes.isEmpty {
+                finalNotes = parserNotes
+            }
+            if !notesText.isEmpty {
+                finalNotes += finalNotes.isEmpty ? notesText : "\n\n" + notesText
+            }
+
+            // Add location to notes if selected (macOS doesn't support location-based reminders in EventKit)
+            if let mapItem = selectedLocation {
+                let locationNote = "📍 Location: \(mapItem.name ?? "Unknown") (\(locationProximity == .enter ? "When arriving" : "When leaving"))"
+                finalNotes += finalNotes.isEmpty ? locationNote : "\n\n" + locationNote
+            }
+
+            // Add urgent marker to notes if selected
+            if isUrgent {
+                finalNotes += finalNotes.isEmpty ? "⚠️ URGENT" : "\n\n⚠️ URGENT"
+            }
+
             reminderManager.createReminder(
                 title: parsedReminder.title,
-                notes: nil,
-                dueDate: parsedReminder.dueDate
+                notes: finalNotes.isEmpty ? nil : finalNotes,
+                dueDate: parsedReminder.dueDate,
+                isUrgent: isUrgent
             ) { success, error in
                 DispatchQueue.main.async {
                     resetProcessing()
-                    
+
                     if success {
                         self.showFlashFeedback(color: self.colorTheme.successColor, success: true)
                         // Notify list view to refresh if it's currently showing
                         NotificationCenter.default.post(name: .reminderListDidUpdate, object: nil)
+
+                        // Reset feature selections
+                        self.selectedLocation = nil
+                        self.locationProximity = .enter
+                        self.notesText = ""
+                        self.showNotesField = false
+                        self.isUrgent = false
+                        self.overriddenRanges.removeAll()
+                        self.isEditingVariables = false
+                        self.parsedVariables.removeAll()
+                        self.showVariablePanel = false
                     } else {
                         let _ = error?.localizedDescription ?? "Unknown error"
                         self.showFlashFeedback(color: self.colorTheme.errorColor, success: false)
@@ -1560,34 +2071,114 @@ struct FloatingReminderView: View {
     }
     
     private func resizeWindowForList(show: Bool) {
-        // Get the current window
+        // Prevent re-entry during resize to avoid infinite constraint loops
+        guard !isResizingWindow else { return }
+        isResizingWindow = true
+        defer {
+            // Reset flag after animation completes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.isResizingWindow = false
+            }
+        }
+
         guard let window = NSApplication.shared.windows.first(where: { $0.isVisible && $0.level == .popUpMenu }) else {
-            // Could not find window to resize
             return
         }
-        
+
         let currentFrame = window.frame
-        let newHeight: CGFloat = show ? 450 : baseWindowHeight // Expand to 450px for list
+        let newHeight: CGFloat = show ? 450 : baseWindowHeight
         let heightDifference = newHeight - currentFrame.height
-        
-        // Calculate new frame - expand upward so input stays in same position
+
         let newFrame = NSRect(
             x: currentFrame.minX,
-            y: currentFrame.minY - heightDifference, // Move window up by height difference
+            y: currentFrame.minY - heightDifference,
             width: currentFrame.width,
             height: newHeight
         )
-        
-        // Resizing window
-        
-        // Animate the resize
-        NSAnimationContext.runAnimationGroup { context in
-            context.duration = 0.3
+
+        // Disable layout during resize to prevent constraint loops
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.25
+            context.allowsImplicitAnimation = true
             context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
             window.animator().setFrame(newFrame, display: true)
-        }
+        }, completionHandler: nil)
     }
-    
+
+    private func resizeWindowForNotes(show: Bool) {
+        // Prevent re-entry during resize to avoid infinite constraint loops
+        guard !isResizingWindow else { return }
+        isResizingWindow = true
+        defer {
+            // Reset flag after animation completes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.isResizingWindow = false
+            }
+        }
+
+        guard let window = NSApplication.shared.windows.first(where: { $0.isVisible && $0.level == .popUpMenu }) else {
+            return
+        }
+
+        let currentFrame = window.frame
+        let notesHeight: CGFloat = 140
+        let newHeight: CGFloat = show ? (baseWindowHeight + notesHeight) : baseWindowHeight
+        let heightDifference = newHeight - currentFrame.height
+
+        let newFrame = NSRect(
+            x: currentFrame.minX,
+            y: currentFrame.minY - heightDifference,
+            width: currentFrame.width,
+            height: newHeight
+        )
+
+        // Disable layout during resize to prevent constraint loops
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.25
+            context.allowsImplicitAnimation = true
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().setFrame(newFrame, display: true)
+        }, completionHandler: nil)
+    }
+
+    private func resizeWindowForVariablePanel(show: Bool) {
+        // Prevent re-entry during resize to avoid infinite constraint loops
+        guard !isResizingWindow else { return }
+        isResizingWindow = true
+        defer {
+            // Reset flag after animation completes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.isResizingWindow = false
+            }
+        }
+
+        guard let window = NSApplication.shared.windows.first(where: { $0.isVisible && $0.level == .popUpMenu }) else {
+            return
+        }
+
+        let currentFrame = window.frame
+        // Calculate panel height based on number of variables (max 150px from UI)
+        let variableCount = parsedVariables.count
+        let panelHeight: CGFloat = variableCount == 0 ? 60 : min(CGFloat(variableCount * 42 + 40), 150)
+        let newHeight: CGFloat = show ? (baseWindowHeight + panelHeight) : baseWindowHeight
+        let heightDifference = newHeight - currentFrame.height
+
+        let newFrame = NSRect(
+            x: currentFrame.minX,
+            y: currentFrame.minY - heightDifference,
+            width: currentFrame.width,
+            height: newHeight
+        )
+
+        // Disable layout during resize to prevent constraint loops
+        NSAnimationContext.runAnimationGroup({ context in
+            context.duration = 0.25
+            context.allowsImplicitAnimation = true
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().setFrame(newFrame, display: true)
+        }, completionHandler: nil)
+    }
+
     private func processSingleReminderMove(_ reminderToMove: EKReminder, newDateText: String, resetProcessing: @escaping () -> Void) {
         // Parse the new date/time and recurrence using smart parsing
         self.nlParser.colorTheme = self.colorTheme
@@ -1821,7 +2412,7 @@ struct FloatingReminderView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
             resizeWindowForDuplicateSelection(show: false)
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.85) {
             isTransitioning = false
         }
         
@@ -1832,29 +2423,38 @@ struct FloatingReminderView: View {
     }
     
     private func resizeWindowForDuplicateSelection(show: Bool) {
-        // Get the current window
+        // Prevent re-entry during resize to avoid infinite constraint loops
+        guard !isResizingWindow else { return }
+        isResizingWindow = true
+        defer {
+            // Reset flag after animation completes
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                self.isResizingWindow = false
+            }
+        }
+
         guard let window = NSApplication.shared.windows.first(where: { $0.isVisible && $0.level == .popUpMenu }) else {
             return
         }
-        
+
         let currentFrame = window.frame
-        let newHeight: CGFloat = show ? 350 : baseWindowHeight // Smaller than list view
+        let newHeight: CGFloat = show ? 350 : baseWindowHeight
         let heightDifference = newHeight - currentFrame.height
-        
-        // Calculate new frame - expand upward so input stays in same position
+
         let newFrame = NSRect(
             x: currentFrame.minX,
             y: currentFrame.minY - heightDifference,
             width: currentFrame.width,
             height: newHeight
         )
-        
-        // Animate the resize
+
+        // Disable layout during resize to prevent constraint loops
         NSAnimationContext.runAnimationGroup({ context in
-            context.duration = 0.3
+            context.duration = 0.25
             context.allowsImplicitAnimation = true
-            window.animator().setFrame(newFrame, display: true, animate: true)
-        })
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            window.animator().setFrame(newFrame, display: true)
+        }, completionHandler: nil)
     }
     
     private func executeRemoveCommand(for reminder: EKReminder) {

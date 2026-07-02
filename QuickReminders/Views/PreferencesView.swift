@@ -15,14 +15,16 @@ enum SettingsPage: String, CaseIterable {
     case hotkey = "Hotkey"
     case colors = "Colors"
     case lists = "Lists"
+    case locations = "Locations"
     case help = "Help"
-    
+
     var icon: String {
         switch self {
         case .general: return "gearshape"
         case .hotkey: return "keyboard"
         case .colors: return "paintpalette"
         case .lists: return "list.bullet.rectangle"
+        case .locations: return "mappin.and.ellipse"
         case .help: return "questionmark.circle"
         }
     }
@@ -66,6 +68,8 @@ struct PreferencesView: View {
             ColorSettingsView(colorTheme: colorTheme)
         case .lists:
             ListSettingsView(reminderManager: reminderManager, colorTheme: colorTheme)
+        case .locations:
+            SavedLocationsView()
         case .help:
             HelpSettingsView(colorTheme: colorTheme)
         }

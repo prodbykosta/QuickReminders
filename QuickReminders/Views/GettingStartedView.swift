@@ -11,6 +11,7 @@ import EventKit
 import Speech
 import AVFoundation
 import AppKit
+import Contacts
 
 enum GettingStartedScreen {
     case welcome
@@ -108,7 +109,7 @@ struct WelcomeScreenView: View {
                         Text("Reminders - to create and manage your reminders")
                             .font(.system(size: 14))
                     }
-                    
+
                     HStack {
                         Image(systemName: "mic.fill")
                             .foregroundColor(.purple)
@@ -116,7 +117,7 @@ struct WelcomeScreenView: View {
                         Text("Microphone - for voice commands")
                             .font(.system(size: 14))
                     }
-                    
+
                     HStack {
                         Image(systemName: "waveform")
                             .foregroundColor(.orange)

@@ -107,7 +107,8 @@ class ColorThemeManager: ObservableObject {
     @Published var voiceActivationEnabled: Bool = false // Enable/disable voice activation hotkey
     @Published var dateFormat: DateFormat = .mmdd // Date format preference (MM/DD vs DD/MM)
     @Published var appearanceTheme: AppearanceTheme = .system // App appearance theme
-    
+    @Published var enableVariableToggle: Bool = false // Enable variable toggle feature (tap to override parsing)
+
     // Time presets for natural language periods
     @Published var morningTime: String = "8:00 AM" // Default time for "morning"
     @Published var noonTime: String = "12:00 PM" // Default time for "noon"

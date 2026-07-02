@@ -129,6 +129,47 @@ struct EnhancedCreateReminderView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 32) {
+                // SHOW ONLY PERMISSION WARNING IF NO ACCESS
+                if !reminderManager.hasAccess {
+                    VStack(spacing: 20) {
+                        Image(systemName: "lock.circle")
+                            .font(.system(size: 60))
+                            .foregroundColor(.orange)
+
+                        Text("Reminders Access Required")
+                            .font(.title2.weight(.semibold))
+                            .foregroundColor(.primary)
+
+                        Text("QuickReminders needs access to your reminders to create and manage them.")
+                            .font(.body)
+                            .foregroundColor(.secondary)
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 40)
+
+                        Button("Open iPhone Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                        .font(.body.weight(.semibold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 24)
+                        .padding(.vertical, 12)
+                        .background(.blue)
+                        .cornerRadius(8)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(12)
+                    .shadow(color: .black.opacity(0.1), radius: 8, x: 0, y: 4)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 40)
+
+                    Spacer()
+                } else {
+                    // MAIN CONTENT - ONLY SHOW WHEN PERMISSIONS ARE GRANTED
+
                 // Header section
                 VStack(spacing: 16) {
                     Image(systemName: "sparkles")
@@ -142,18 +183,18 @@ struct EnhancedCreateReminderView: View {
                         )
                         .scaleEffect(isProcessing ? 1.2 : 1.0)
                         .animation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true), value: isProcessing)
-                    
+
                     Text("Create Reminder")
                         .font(.largeTitle.weight(.bold))
                         .foregroundColor(.primary)
-                    
+
                     Text("Type naturally or use voice - I'll understand when and what you want to remember")
                         .font(.body)
                         .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 20)
                 }
-                .padding(.top, 40)
+                .padding(.top, !reminderManager.hasAccess ? 0 : 40)
                 
                 // Input section with voice
                 VStack(spacing: 20) {
@@ -276,8 +317,9 @@ struct EnhancedCreateReminderView: View {
                     .transition(.opacity.combined(with: .scale(scale: 0.95)))
                     .animation(.easeInOut(duration: 0.3), value: reminderText.isEmpty)
                 }
-                
+
                 Spacer()
+                } // End of else block - main content only when permissions granted
             }
         }
         .navigationTitle("Create")
@@ -460,61 +502,90 @@ struct EnhancedCreateReminderView: View {
     
     private func handleListCommand(_ command: String) {
         animationManager.showProcessing("Loading reminders...")
-        
-        reminderManager.getAllReminders { allReminders in
-            DispatchQueue.main.async {
-                // Parse date filter from command  
-                let dateFilter = self.parseDateFromCommand(command)
-                
-                var filteredReminders = allReminders
-                
-                // Apply date filtering if specified (weekday filtering)
-                if let targetDate = dateFilter {
-                    filteredReminders = allReminders.filter { reminder in
-                        guard let dueDate = reminder.dueDateComponents?.date else {
-                            return false // Only show reminders with due dates for date-specific queries
-                        }
-                        return Calendar.current.isDate(dueDate, inSameDayAs: targetDate)
-                    }
-                } else if command.lowercased().contains("week") || command.lowercased().contains("month") {
-                    // Handle week/month filters
-                    filteredReminders = self.filterRemindersForPeriod(allReminders, command: command)
-                }
-                
-                self.isProcessing = false
-                self.reminderText = ""
-                
-                let count = filteredReminders.count
-                
-                if count == 0 {
-                    self.animationManager.showError("No reminders found")
-                } else {
-                    // Show the actual reminders like macOS does
-                    let topReminders = filteredReminders.prefix(3).compactMap { reminder in
-                        let title = reminder.title ?? "Untitled"
-                        let shortTitle = title.count > 25 ? String(title.prefix(25)) + "..." : title
-                        if let dueDate = reminder.dueDateComponents?.date {
-                            let formatter = DateFormatter()
-                            formatter.dateStyle = .short
-                            formatter.timeStyle = .none
-                            return "\(shortTitle) (\(formatter.string(from: dueDate)))"
-                        } else {
-                            return shortTitle
+
+        // Check if using Google provider
+        if colorTheme.selectedProvider == "Google (Tasks + Calendar)" && GoogleAuthManager.shared.isSignedIn {
+            Task {
+                do {
+                    let allReminders = try await reminderManager.getAllGoogleReminders()
+                    let dateFilter = self.parseDateFromCommand(command)
+                    var filteredReminders = allReminders
+
+                    if let targetDate = dateFilter {
+                        filteredReminders = allReminders.filter { reminder in
+                            guard let dueDate = reminder.dueDate else { return false }
+                            return Calendar.current.isDate(dueDate, inSameDayAs: targetDate)
                         }
                     }
-                    
-                    let listSummary = topReminders.joined(separator: " • ")
-                    let displayMessage = count <= 3 ? 
-                        "📋 \(count) reminder\(count == 1 ? "" : "s"): \(listSummary)" :
-                        "📋 \(count) reminders: \(listSummary) + \(count - 3) more"
-                    
-                    self.animationManager.showSuccess(displayMessage)
-                }
-                
-                DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
-                    self.animationManager.hide()
+
+                    await MainActor.run {
+                        self.isProcessing = false
+                        self.reminderText = ""
+                        self.showListResult(titles: filteredReminders.map { $0.title }, dates: filteredReminders.map { $0.dueDate })
+                    }
+                } catch {
+                    await MainActor.run {
+                        self.isProcessing = false
+                        self.reminderText = ""
+                        self.animationManager.showError("Failed to load Google reminders")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { self.animationManager.hide() }
+                    }
                 }
             }
+        } else {
+            reminderManager.getAllReminders { allReminders in
+                DispatchQueue.main.async {
+                    let dateFilter = self.parseDateFromCommand(command)
+                    var filteredReminders = allReminders
+
+                    if let targetDate = dateFilter {
+                        filteredReminders = allReminders.filter { reminder in
+                            guard let dueDate = reminder.dueDateComponents?.date else { return false }
+                            return Calendar.current.isDate(dueDate, inSameDayAs: targetDate)
+                        }
+                    } else if command.lowercased().contains("week") || command.lowercased().contains("month") {
+                        filteredReminders = self.filterRemindersForPeriod(allReminders, command: command)
+                    }
+
+                    self.isProcessing = false
+                    self.reminderText = ""
+                    self.showListResult(
+                        titles: filteredReminders.compactMap { $0.title },
+                        dates: filteredReminders.map { $0.dueDateComponents?.date }
+                    )
+                }
+            }
+        }
+    }
+
+    private func showListResult(titles: [String], dates: [Date?]) {
+        let count = titles.count
+
+        if count == 0 {
+            animationManager.showError("No reminders found")
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .short
+            formatter.timeStyle = .none
+
+            let topReminders = titles.prefix(3).enumerated().map { index, title -> String in
+                let shortTitle = title.count > 25 ? String(title.prefix(25)) + "..." : title
+                if index < dates.count, let date = dates[index] {
+                    return "\(shortTitle) (\(formatter.string(from: date)))"
+                }
+                return shortTitle
+            }
+
+            let listSummary = topReminders.joined(separator: " • ")
+            let displayMessage = count <= 3 ?
+                "📋 \(count) reminder\(count == 1 ? "" : "s"): \(listSummary)" :
+                "📋 \(count) reminders: \(listSummary) + \(count - 3) more"
+
+            animationManager.showSuccess(displayMessage)
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5.0) {
+            self.animationManager.hide()
         }
     }
     
@@ -781,7 +852,194 @@ struct CompleteSettingsView: View {
                 }
                 .padding(.vertical, 8)
             }
-            
+
+            // Reminder Service Provider Selection
+            Section("Reminder Service") {
+                Picker("Provider", selection: $colorTheme.selectedProvider) {
+                    Text("Apple Reminders").tag("Apple Reminders")
+                    Text("Google (Tasks + Calendar)").tag("Google (Tasks + Calendar)")
+                }
+                .pickerStyle(.menu)
+
+                if colorTheme.selectedProvider == "Apple Reminders" {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundColor(.green)
+                            Text("Active")
+                                .font(.subheadline)
+                            Spacer()
+                        }
+
+                        Text("✓ Full features")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text("✓ Works offline")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text("✓ Siri integration")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                } else {
+                    // Google Provider Selected
+                    if GoogleAuthManager.shared.isSignedIn {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundColor(.green)
+                                Text("Connected: \(GoogleAuthManager.shared.userEmail ?? "")")
+                                    .font(.subheadline)
+                                Spacer()
+                            }
+
+                            Button("Sign Out") {
+                                GoogleAuthManager.shared.signOut()
+                            }
+                            .font(.caption)
+                            .foregroundColor(.red)
+
+                            Divider()
+
+                            Text("Default Lists/Calendars:")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+
+                            // Google Tasks List Picker
+                            if !reminderManager.googleLists.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Default Task List")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                    Picker("", selection: Binding(
+                                        get: { reminderManager.selectedGoogleListId ?? "" },
+                                        set: { reminderManager.setSelectedGoogleList(listId: $0) }
+                                    )) {
+                                        ForEach(reminderManager.googleLists, id: \.id) { list in
+                                            Text(list.name).tag(list.id)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                }
+                            }
+
+                            // Google Calendar Picker
+                            if !reminderManager.googleCalendars.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text("Default Calendar")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                    Picker("", selection: Binding(
+                                        get: { reminderManager.selectedGoogleCalendarId ?? "" },
+                                        set: { reminderManager.setSelectedGoogleCalendar(calendarId: $0) }
+                                    )) {
+                                        ForEach(reminderManager.googleCalendars, id: \.id) { calendar in
+                                            Text(calendar.name).tag(calendar.id)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                }
+                            }
+
+                            // Google Calendar Completion Mode Picker
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("Calendar Event Completion")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                                Picker("", selection: $colorTheme.googleCalendarCompletionMode) {
+                                    ForEach(GoogleCalendarCompletionMode.allCases, id: \.self) { mode in
+                                        Text(mode.displayName).tag(mode)
+                                    }
+                                }
+                                .pickerStyle(.menu)
+
+                                Text(colorTheme.googleCalendarCompletionMode.description)
+                                    .font(.caption2)
+                                    .foregroundColor(.blue)
+                                    .italic()
+                                    .padding(.top, 2)
+                            }
+
+                            Divider()
+
+                            Text("Smart Routing:")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+
+                            Text("• ⚡ Bolt → Manually select list/calendar")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Text("• Task list + recurring → Default Calendar")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Text("• Task list + has time → Default Calendar")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Text("• Calendar + no date → Default Task List")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+                            Text("• Otherwise → Manual selection respected")
+                                .font(.caption2)
+                                .foregroundColor(.blue)
+
+                            Text("⚠️ Limitations:")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.orange)
+                                .padding(.top, 4)
+
+                            Text("• Google Tasks only stores dates (no times)")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Text("• Requires internet connection")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Text("• No location-based reminders")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    } else {
+                        VStack(alignment: .leading, spacing: 12) {
+                            Text("Sign in with your Google account to sync reminders with Google Tasks and Google Calendar.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+
+                            Button(action: {
+                                // Get root view controller to present sign-in
+                                if let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+                                   let rootViewController = windowScene.windows.first?.rootViewController {
+                                    GoogleAuthManager.shared.signIn(presentingViewController: rootViewController)
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: "person.circle.fill")
+                                    Text("Sign in with Google")
+                                }
+                                .font(.body.weight(.semibold))
+                                .foregroundColor(.white)
+                                .frame(maxWidth: .infinity)
+                                .padding()
+                                .background(.blue)
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+
+                            Text("Hybrid Storage:")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .padding(.top, 4)
+
+                            Text("• Simple tasks → Google Tasks")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                            Text("• Recurring tasks → Google Calendar")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                }
+            }
+
             // Appearance Section
             Section("Appearance") {
                 Picker("Theme", selection: $colorTheme.appearanceTheme) {
@@ -921,7 +1179,83 @@ struct CompleteSettingsView: View {
                     .padding(.vertical, 20)
                 }
             }
-            
+
+            // Siri Integration Section
+            Section("Siri Integration") {
+                Toggle("Enable Siri Integration", isOn: $colorTheme.siriIntegrationEnabled)
+
+                if colorTheme.siriIntegrationEnabled {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Siri Default List")
+                            .font(.subheadline)
+                            .fontWeight(.medium)
+
+                        Text("Choose which list Siri creates reminders in")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
+                        if !reminderManager.availableLists.isEmpty {
+                            ForEach(reminderManager.availableLists, id: \.calendarIdentifier) { list in
+                                Button(action: {
+                                    colorTheme.siriDefaultList = list.calendarIdentifier
+                                }) {
+                                    HStack(spacing: 12) {
+                                        Circle()
+                                            .fill(Color(cgColor: list.cgColor))
+                                            .frame(width: 16, height: 16)
+
+                                        Text(list.title)
+                                            .font(.system(size: 14, weight: .medium))
+                                            .foregroundColor(.primary)
+
+                                        Spacer()
+
+                                        if colorTheme.siriDefaultList == list.calendarIdentifier {
+                                            Image(systemName: "checkmark.circle.fill")
+                                                .foregroundColor(.blue)
+                                                .font(.system(size: 14))
+                                        }
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 6)
+                                    .background(
+                                        colorTheme.siriDefaultList == list.calendarIdentifier ?
+                                        Color(cgColor: list.cgColor).opacity(0.08) : Color.clear,
+                                        in: RoundedRectangle(cornerRadius: 6)
+                                    )
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 6)
+                                            .stroke(
+                                                colorTheme.siriDefaultList == list.calendarIdentifier ?
+                                                Color(cgColor: list.cgColor).opacity(0.2) : Color.clear,
+                                                lineWidth: 1
+                                            )
+                                    )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        } else {
+                            Text("No lists available")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("How to use:")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.secondary)
+
+                        Text("Say 'Hey Siri, Create a reminder using QuickReminders', 'Move a reminder using QuickReminders', or 'Remove a reminder using QuickReminders'")
+                            .font(.caption2)
+                            .foregroundColor(.blue)
+                            .italic()
+                    }
+                    .padding(.top, 8)
+                }
+            }
+
             // Quick Ideas Section
             Section("Quick Ideas") {
                 NavigationLink("Customize Quick Ideas") {
@@ -939,24 +1273,51 @@ struct CompleteSettingsView: View {
             // Voice Recognition Section (iOS specific - no hotkeys!)
             Section("Voice Recognition") {
                 Toggle("Enable Voice Commands", isOn: $colorTheme.voiceActivationEnabled)
-                
+
+                // Microphone Permission
                 HStack {
-                    Image(systemName: speechManager.hasPermissions() ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
-                        .foregroundColor(speechManager.hasPermissions() ? .green : .orange)
-                    
-                    Text(speechManager.hasPermissions() ? "Microphone Access Granted" : "Microphone Access Required")
+                    Image(systemName: speechManager.hasMicrophonePermission() ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundColor(speechManager.hasMicrophonePermission() ? .green : .red)
+
+                    Text(speechManager.hasMicrophonePermission() ? "Microphone Access Granted" : "Microphone Access Required")
                         .font(.subheadline)
-                    
+
                     Spacer()
-                    
-                    if !speechManager.hasPermissions() {
-                        Button("Grant") {
-                            speechManager.requestPermissions()
+
+                    if !speechManager.hasMicrophonePermission() {
+                        Button("Open iPhone Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
                         }
                         .font(.caption)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 4)
-                        .background(colorTheme.primaryColor, in: RoundedRectangle(cornerRadius: 8))
+                        .background(.blue, in: RoundedRectangle(cornerRadius: 8))
+                        .foregroundColor(.white)
+                    }
+                }
+
+                // Speech Recognition Permission
+                HStack {
+                    Image(systemName: speechManager.hasSpeechRecognitionPermission() ? "checkmark.circle.fill" : "xmark.circle.fill")
+                        .foregroundColor(speechManager.hasSpeechRecognitionPermission() ? .green : .red)
+
+                    Text(speechManager.hasSpeechRecognitionPermission() ? "Speech Recognition Access Granted" : "Speech Recognition Access Required")
+                        .font(.subheadline)
+
+                    Spacer()
+
+                    if !speechManager.hasSpeechRecognitionPermission() {
+                        Button("Open iPhone Settings") {
+                            if let url = URL(string: UIApplication.openSettingsURLString) {
+                                UIApplication.shared.open(url)
+                            }
+                        }
+                        .font(.caption)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 4)
+                        .background(.blue, in: RoundedRectangle(cornerRadius: 8))
                         .foregroundColor(.white)
                     }
                 }
@@ -1021,8 +1382,146 @@ struct CompleteSettingsView: View {
                     }
                 }
             }
-            
-            // Language Processing Section  
+
+            // AI Mode Section
+            Section("AI Mode") {
+                Toggle("Enable AI Mode", isOn: $colorTheme.aiModeEnabled)
+
+                if colorTheme.aiModeEnabled {
+                    Text("AI Mode understands input in any language. The task title stays in your language — only dates, times, and commands are translated.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Picker("Provider", selection: $colorTheme.aiProvider) {
+                        ForEach(AIProvider.allCases, id: \.self) { provider in
+                            Text(provider.displayName).tag(provider)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    switch colorTheme.aiProvider {
+                    case .gemini:
+                        VStack(alignment: .leading, spacing: 6) {
+                            SecureField("Gemini API Key", text: $colorTheme.geminiApiKey)
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                            TextField("Model (default: gemini-2.5-flash)", text: $colorTheme.geminiModel)
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                            Link("Get your free key at aistudio.google.com →", destination: URL(string: "https://aistudio.google.com/apikey")!)
+                                .font(.caption)
+                        }
+                    case .groq:
+                        VStack(alignment: .leading, spacing: 6) {
+                            SecureField("Groq API Key", text: $colorTheme.groqApiKey)
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                            TextField("Model (default: llama-3.1-8b-instant)", text: $colorTheme.groqModel)
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                            Link("Get your free key at console.groq.com →", destination: URL(string: "https://console.groq.com/keys")!)
+                                .font(.caption)
+                            Text("14,400 requests/day free — no credit card required")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    case .custom:
+                        VStack(alignment: .leading, spacing: 8) {
+                            TextField("Base URL (e.g. http://localhost:11434)", text: $colorTheme.customApiUrl)
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+                                .keyboardType(.URL)
+
+                            TextField("Model (e.g. llama3.1:8b)", text: $colorTheme.customApiModel)
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+
+                            SecureField("Secret Token (Cloudflare WAF)", text: $colorTheme.customApiKey)
+                                .textFieldStyle(.roundedBorder)
+                                .autocorrectionDisabled()
+                                .textInputAutocapitalization(.never)
+
+                            Text("Run AI on your own computer or server using Ollama or LM Studio.")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Link("View setup guide →", destination: URL(string: "https://quickreminders.app/setup")!)
+                                .font(.caption)
+                        }
+                    }
+
+                    Toggle("Auto-Approve", isOn: $colorTheme.aiAutoApprove)
+                    Text("Skip the preview and create the reminder immediately after AI transforms the text.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    Picker("Voice Language", selection: $colorTheme.aiVoiceLocale) {
+                        ForEach(AIVoiceLanguage.all, id: \.locale) { lang in
+                            Text(lang.displayName).tag(lang.locale)
+                        }
+                    }
+                    Text("Language used for voice recognition when AI Mode is on.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        TextField(AIVoiceLanguage.placeholder(for: colorTheme.aiVoiceLocale), text: $colorTheme.aiVoiceTriggerWord)
+                            .textFieldStyle(.roundedBorder)
+                            .autocorrectionDisabled()
+                            .textInputAutocapitalization(.never)
+
+                        Text("Say this word at the end of your voice reminder to auto-send. Works alongside your existing trigger words.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            }
+
+            // Input Features Section
+            Section("Input Features") {
+                Toggle("Show Notes Field", isOn: $colorTheme.enableNotesField)
+                Text("Enable an expandable notes field during reminder creation")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                Toggle("Variable Toggle Mode", isOn: $colorTheme.enableVariableToggle)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Long press highlighted words to toggle parsing")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text("Example: Press \"tomorrow\" to keep it as literal text instead of parsing as date")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .italic()
+                }
+
+                NavigationLink(destination: SavedLocationsView()) {
+                    HStack {
+                        Image(systemName: "mappin.and.ellipse")
+                            .foregroundColor(.green)
+                            .frame(width: 24)
+
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Manage Saved Locations")
+                                .font(.body)
+                                .foregroundColor(.primary)
+
+                            Text("Add locations for quick access in reminders")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+
+                        Spacer()
+                    }
+                }
+            }
+
+            // Language Processing Section
             Section("Language Processing") {
                 Toggle("Enable Shortcuts", isOn: $colorTheme.shortcutsEnabled)
                 
@@ -1449,7 +1948,7 @@ struct CompleteSettingsView: View {
                 HStack {
                     Text("Version")
                     Spacer()
-                    Text("1.0.0")
+                    Text("1.3.0")
                         .foregroundColor(.secondary)
                 }
                 

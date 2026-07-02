@@ -88,7 +88,11 @@ class SharedColorThemeManager: ObservableObject {
     @Published var afternoonTime: String = "3:00 PM"
     @Published var eveningTime: String = "6:00 PM"
     @Published var nightTime: String = "9:00 PM"
-    
+
+    // Siri Integration Settings
+    @Published var siriIntegrationEnabled: Bool = true
+    @Published var siriDefaultList: String = ""
+
     init() {
         // Use App Group UserDefaults for shared settings between main app and keyboard extension
         self.sharedDefaults = UserDefaults(suiteName: "group.com.martinkostelka.QuickReminders") ?? UserDefaults.standard
@@ -162,6 +166,10 @@ class SharedColorThemeManager: ObservableObject {
         afternoonTime = sharedDefaults.string(forKey: "AfternoonTime") ?? "3:00 PM"
         eveningTime = sharedDefaults.string(forKey: "EveningTime") ?? "6:00 PM"
         nightTime = sharedDefaults.string(forKey: "NightTime") ?? "9:00 PM"
+
+        // Load Siri integration settings
+        siriIntegrationEnabled = sharedDefaults.object(forKey: "SiriIntegrationEnabled") as? Bool ?? true
+        siriDefaultList = sharedDefaults.string(forKey: "SiriDefaultList") ?? ""
     }
     
     private func setupObservers() {
@@ -293,8 +301,21 @@ class SharedColorThemeManager: ObservableObject {
                 self?.sharedDefaults.set(time, forKey: "NightTime")
             }
             .store(in: &cancellables)
+
+        // Siri integration observers
+        $siriIntegrationEnabled
+            .sink { [weak self] enabled in
+                self?.sharedDefaults.set(enabled, forKey: "SiriIntegrationEnabled")
+            }
+            .store(in: &cancellables)
+
+        $siriDefaultList
+            .sink { [weak self] listId in
+                self?.sharedDefaults.set(listId, forKey: "SiriDefaultList")
+            }
+            .store(in: &cancellables)
     }
-    
+
     private var cancellables = Set<AnyCancellable>()
     
     // MARK: - Voice Trigger Management

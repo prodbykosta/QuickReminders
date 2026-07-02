@@ -74,15 +74,17 @@ class SyntaxHighlighter {
             ("\\bin\\s+\\d+\\s+weeks?\\b", NSColor.systemOrange),
             ("\\bin\\s+\\d+\\s+months?\\b", NSColor.systemOrange),
             
-            // Until keyword and years (GREEN)
-            ("\\buntil\\b", NSColor.systemGreen),
-            ("\\b\\d{4}\\b", NSColor.systemGreen), // Years like 2025, 2026
+            // Until keyword - DISABLED FOR NOW (not implemented yet)
+            // ("\\buntil\\b", NSColor.systemGreen),
+            // Years like 2025, 2026 (GREEN)
+            ("\\b\\d{4}\\b", NSColor.systemGreen),
             
             // Connectors (PURPLE) - only when followed by temporal keywords
             ("\\bat\\s+(?=\\d{1,2}" + (timePeriodsEnabled ? "|morning|afternoon|evening|night|noon" : "") + ")", NSColor.systemPurple),
             ("\\bon\\s+(?=monday|tuesday|wednesday|thursday|friday|saturday|sunday|mon|tue|wed|thu|fri|sat|sun|today|tomorrow|\\d{1,2}[./]\\d{1,2})", NSColor.systemPurple),
             ("\\bin\\s+(?=\\d+\\s+(?:day|days|week|weeks|month|months)" + (timePeriodsEnabled ? "|morning|afternoon|evening" : "") + ")", NSColor.systemPurple),
-            ("\\b(to|from|by)\\b", NSColor.systemPurple),
+            // Note: "to" removed as it's not used in parser logic
+            ("\\b(from|by)\\b", NSColor.systemPurple),
             
             // Date patterns (YELLOW) - conditional shortcuts
             (shortcutsEnabled ? 
@@ -140,9 +142,14 @@ class SyntaxHighlighter {
                 let matches = regex.matches(in: text, options: [], range: NSRange(location: 0, length: nsText.length))
                 
                 for match in matches {
+                    // Guard against nil values to prevent crashes
+                    guard match.range.location + match.range.length <= nsText.length else { continue }
+
                     attributedString.addAttribute(.foregroundColor, value: color, range: match.range)
                     // Preserve font attribute when setting color
-                    attributedString.addAttribute(.font, value: NSFont.systemFont(ofSize: 16, weight: .medium), range: match.range)
+                    if let font = NSFont.systemFont(ofSize: 16, weight: .medium) as NSFont? {
+                        attributedString.addAttribute(.font, value: font, range: match.range)
+                    }
                 }
             } catch {
                 // Silently continue if regex pattern fails
@@ -160,22 +167,27 @@ class HighlightedTextField: NSTextField {
     var timePeriodsEnabled: Bool = true
     var onTextChange: ((String) -> Void)?
     private var isUpdatingInternally = false
-    
+
+    // Variable toggling support
+    var parsedVariables: [ParsedVariable] = []
+    var onVariableToggle: ((Int) -> Void)?
+    var isEditingVariables: Bool = false
+
     override func awakeFromNib() {
         super.awakeFromNib()
         setupTextField()
     }
-    
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setupTextField()
     }
-    
+
     required init?(coder: NSCoder) {
         super.init(coder: coder)
         setupTextField()
     }
-    
+
     private func setupTextField() {
         // Configure basic properties with emoji support
         self.font = NSFont.systemFont(ofSize: 16, weight: .medium)
@@ -183,48 +195,173 @@ class HighlightedTextField: NSTextField {
         self.isBordered = false
         self.backgroundColor = NSColor.clear
         self.allowsEditingTextAttributes = true
-        
+
         // Enable emoji and Unicode support
         self.importsGraphics = false
         self.usesSingleLineMode = true
-        
+
         // Ensure proper text encoding for emojis
         if let cell = self.cell as? NSTextFieldCell {
             cell.allowsUndo = true
         }
+
+        // Add click gesture recognizer to intercept clicks BEFORE data detectors
+        let clickRecognizer = NSClickGestureRecognizer(target: self, action: #selector(handleClickGesture(_:)))
+        clickRecognizer.numberOfClicksRequired = 1
+        clickRecognizer.delaysPrimaryMouseButtonEvents = false // Don't delay normal clicks
+        self.addGestureRecognizer(clickRecognizer)
+    }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        // Accept first mouse to receive clicks even when window is not key
+        return true
+    }
+
+    override var acceptsFirstResponder: Bool {
+        // Always accept first responder
+        return true
+    }
+
+    @objc private func handleClickGesture(_ gesture: NSClickGestureRecognizer) {
+        // Only handle clicks when in variable edit mode
+        guard isEditingVariables else {
+            return
+        }
+
+        // Get click location
+        let clickPoint = gesture.location(in: self)
+
+        // Wait a tiny bit for field editor to be ready
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            guard let fieldEditor = self.currentEditor() as? NSTextView else {
+                return
+            }
+
+            guard let layoutManager = fieldEditor.layoutManager,
+                  let textContainer = fieldEditor.textContainer else {
+                return
+            }
+
+            // Convert click point to text view coordinates
+            let textViewPoint = fieldEditor.convert(clickPoint, from: self)
+
+            // Get character index at click point
+            let characterIndex = layoutManager.characterIndex(
+                for: textViewPoint,
+                in: textContainer,
+                fractionOfDistanceBetweenInsertionPoints: nil
+            )
+
+            // Check if click was inside a variable
+            for (index, variable) in self.parsedVariables.enumerated() {
+                let range = variable.range
+                let rangeEnd = range.location + range.length
+
+                // Check if click is within the range (inclusive start, exclusive end)
+                if characterIndex >= range.location && characterIndex < rangeEnd {
+                    self.onVariableToggle?(index)
+                    return
+                }
+            }
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        super.mouseDown(with: event)
     }
     
+    override func textDidBeginEditing(_ notification: Notification) {
+        super.textDidBeginEditing(notification)
+
+        // Disable data detectors on the field editor when editing starts
+        if let fieldEditor = self.currentEditor() as? NSTextView {
+            fieldEditor.isAutomaticDataDetectionEnabled = false
+            fieldEditor.isAutomaticLinkDetectionEnabled = false
+            fieldEditor.isAutomaticTextReplacementEnabled = false
+            fieldEditor.isAutomaticDashSubstitutionEnabled = false
+            fieldEditor.isAutomaticQuoteSubstitutionEnabled = false
+        }
+    }
+
     override func textDidChange(_ notification: Notification) {
         guard !isUpdatingInternally else { return }
-        
+
         super.textDidChange(notification)
-        
+
         let currentText = self.stringValue
-        
+
         applyHighlighting()
-        
+
         // Notify delegate of text change
         onTextChange?(currentText)
     }
+
+    // Public method to manually refresh highlighting (e.g., when variables change)
+    func refreshHighlighting() {
+        applyHighlighting()
+    }
     
     private func applyHighlighting() {
+        // Only apply if not currently being updated by NSViewRepresentable
+        // This prevents infinite constraint loops during window resize
+        guard !isUpdatingInternally else { return }
+
         guard let textView = self.currentEditor() as? NSTextView else { return }
-        
+
         let currentText = self.stringValue
         let selectedRange = textView.selectedRange
-        
+
         isUpdatingInternally = true
-        
+
         // Apply syntax highlighting
         let highlightedText = SyntaxHighlighter.highlightText(currentText, isEnabled: colorHelpersEnabled, shortcutsEnabled: shortcutsEnabled, timePeriodsEnabled: timePeriodsEnabled)
-        
-        // Update the text storage
-        textView.textStorage?.setAttributedString(highlightedText)
-        
+
+        // Convert to mutable string
+        let mutableString = NSMutableAttributedString(attributedString: highlightedText)
+
+        // Apply variable styling
+        if !parsedVariables.isEmpty {
+            for variable in parsedVariables {
+                // Make sure range is valid
+                guard variable.range.location >= 0 && variable.range.location + variable.range.length <= currentText.count else { continue }
+
+                if variable.isOverriddenAsText {
+                    // Overridden variables: RED UNDERLINE (will NOT be parsed)
+                    mutableString.addAttribute(.underlineStyle, value: NSUnderlineStyle.single.rawValue, range: variable.range)
+                    mutableString.addAttribute(.underlineColor, value: NSColor.systemRed, range: variable.range)
+                    // Keep original text color so it's readable
+                } else if isEditingVariables {
+                    // Active variables in edit mode: PURPLE background (clickable to toggle)
+                    mutableString.addAttribute(.backgroundColor, value: NSColor.systemPurple.withAlphaComponent(0.2), range: variable.range)
+                    mutableString.addAttribute(.foregroundColor, value: NSColor.systemPurple, range: variable.range)
+                }
+                // If not in edit mode and not overridden, variable gets normal syntax highlighting
+            }
+        }
+
+        // Update the text storage - guard against nil
+        guard let textStorage = textView.textStorage else {
+            isUpdatingInternally = false
+            return
+        }
+
+        textStorage.setAttributedString(mutableString)
+
         // Restore cursor position
         textView.selectedRange = selectedRange
-        
+
         isUpdatingInternally = false
+    }
+
+    private func colorForVariableType(_ type: ParsedVariable.VariableType) -> NSColor {
+        switch type {
+        case .date: return .systemBlue
+        case .time: return .systemPurple
+        case .number: return .systemOrange
+        case .contact: return .systemGreen
+        case .location: return .systemTeal
+        case .recurrence: return .systemIndigo
+        }
     }
     
     func updateText(_ text: String) {
@@ -246,4 +383,12 @@ class HighlightedTextField: NSTextField {
         timePeriodsEnabled = enabled
         applyHighlighting()
     }
+
+    // MARK: - Variable Toggling Support
+
+    func setParsedVariables(_ variables: [ParsedVariable]) {
+        parsedVariables = variables
+        applyHighlighting()
+    }
+
 }#endif

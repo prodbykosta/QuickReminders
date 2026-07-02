@@ -132,23 +132,28 @@ class ReminderManager: ObservableObject {
         await loadReminderListsAsync()
     }
     
-    func createReminder(title: String, notes: String? = nil, dueDate: Date? = nil, completion: @escaping (Bool, Error?) -> Void) {
+    func createReminder(title: String, notes: String? = nil, dueDate: Date? = nil, isUrgent: Bool = false, completion: @escaping (Bool, Error?) -> Void) {
         guard hasAccess else {
             completion(false, ReminderError.accessDenied)
             return
         }
-        
+
         let reminder = EKReminder(eventStore: eventStore)
         reminder.title = title
         reminder.notes = notes
-        
+
         if let dueDate = dueDate {
             let dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: dueDate)
             reminder.dueDateComponents = dueDateComponents
         }
-        
+
+        // Set priority to high if urgent
+        if isUrgent {
+            reminder.priority = 1 // High priority (appears in "Urgent" smart list)
+        }
+
         reminder.calendar = selectedList ?? eventStore.defaultCalendarForNewReminders()
-        
+
         do {
             try eventStore.save(reminder, commit: true)
             completion(true, nil)
@@ -157,21 +162,26 @@ class ReminderManager: ObservableObject {
         }
     }
     
-    func createRecurringReminder(title: String, notes: String? = nil, startDate: Date, interval: Int, frequency: EKRecurrenceFrequency, endDate: Date? = nil, completion: @escaping (Bool, Error?) -> Void) {
+    func createRecurringReminder(title: String, notes: String? = nil, startDate: Date, interval: Int, frequency: EKRecurrenceFrequency, endDate: Date? = nil, isUrgent: Bool = false, completion: @escaping (Bool, Error?) -> Void) {
         guard hasAccess else {
             completion(false, ReminderError.accessDenied)
             return
         }
-        
+
         let reminder = EKReminder(eventStore: eventStore)
         reminder.title = title
         reminder.notes = notes
-        
+
         let dueDateComponents = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: startDate)
         reminder.dueDateComponents = dueDateComponents
-        
+
         // CRITICAL: For recurring reminders, BOTH startDateComponents AND dueDateComponents must be set
         reminder.startDateComponents = dueDateComponents
+
+        // Set priority to high if urgent
+        if isUrgent {
+            reminder.priority = 1 // High priority (appears in "Urgent" smart list)
+        }
         
         // Set date components for recurring reminder
         
